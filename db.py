@@ -3,6 +3,7 @@ import sqlite3
 def database(func):
     def wrapper(*args,**kwargs):
         conn = sqlite3.connect('modmail.db')
+        conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         ret = func(cursor, *args, *kwargs)
         conn.commit()
@@ -11,9 +12,23 @@ def database(func):
     return wrapper
 
 @database
+def get_ticket(cursor, ticket_id):
+    sql = """
+        SELECT ticket_id, user, open, message_id
+        FROM mm_tickets
+        WHERE ticket_id=?
+    """
+    cursor.execute(sql, [ticket_id])
+    ticket = cursor.fetchone()
+    if ticket is None or len(ticket) == 0:
+        return -1
+    else:
+        return ticket
+
+@database
 def get_ticket_by_user(cursor, user):
     sql = """
-        SELECT ticket_id
+        SELECT ticket_id, user, open, message_id
         FROM mm_tickets
         WHERE user=?
         AND open=1
@@ -21,9 +36,9 @@ def get_ticket_by_user(cursor, user):
     cursor.execute(sql, [user])
     ticket = cursor.fetchone()
     if ticket is None or len(ticket) == 0:
-        return -1
+        return {'ticket_id': -1, 'user': -1, 'open':0, 'message_id':-1}
     else:
-        return ticket[0] 
+        return ticket 
 
 @database
 def open_ticket(cursor, user):
@@ -44,6 +59,25 @@ def close_ticket(cursor, ticket_id):
     cursor.execute(sql,[ticket_id])
 
     return cursor.rowcount is not 0
+
+@database
+def get_ticket_responses(cursor, ticket_id):
+    sql = """
+        SELECT user, response, timestamp, as_server
+        FROM mm_ticket_responses
+        WHERE ticket_id=?
+    """
+    cursor.execute(sql, [ticket_id])
+    return cursor.fetchall()
+
+@database
+def add_ticket_response(cursor, ticket_id, user, response, as_server):
+    sql = """
+        INSERT INTO mm_ticket_responses (ticket_id, user, response, as_server)
+        VALUES (?, ?, ?, ?)
+    """
+    cursor.execute(sql, [ticket_id, user, response, as_server])
+    return True
 
 @database
 def init(cursor):
@@ -70,7 +104,7 @@ def init(cursor):
         ticket_id INTEGER,
         user INTEGER NOT NULL,
         response TEXT NOT NULL,
-        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+        timestamp TIMESTAMP DEFAULT (strftime('%s', 'now')) NOT NULL,
         as_server BOOLEAN NOT NULL,
         FOREIGN KEY (ticket_id) REFERENCES mm_tickets (ticket_id)
     );
@@ -90,7 +124,7 @@ def init(cursor):
     CREATE TABLE IF NOT EXISTS mm_timeouts (
         timeout_id INTEGER PRIMARY KEY AUTOINCREMENT,
         user INTEGER NOT NULL UNIQUE,
-        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+        timestamp TIMESTAMP DEFAULT (strftime('%s', 'now')) NOT NULL
     );
     """
     result = cursor.execute(sql)
