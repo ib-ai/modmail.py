@@ -13,13 +13,37 @@ def database(func):
 @database
 def init(cursor):
 
-    #Create mm_tickets table
+    #Create modmail tickets table
     sql = """
     CREATE TABLE IF NOT EXISTS mm_tickets (
         ticket_id INTEGER PRIMARY KEY,
         user INTEGER NOT NULL,
         open BOOLEAN DEFAULT TRUE NOT NULL,
         message_id INTEGER
+    );
+    """
+    result = cursor.execute(sql)
+
+    #Create modmail ticket repsonses table
+    sql = """
+    CREATE TABLE IF NOT EXISTS mm_ticket_responses (
+        response_id INTEGER PRIMARY KEY,
+        ticket_id INTEGER,
+        user INTEGER NOT NULL,
+        response TEXT NOT NULL,
+        timestamp DATETIME DEFAULT NOW() NOT NULL,
+        as_server BOOLEAN NOT NULL,
+        FOREIGN KEY(ticket_id) REFERENCES mm_tickets(ticket_id)
+    );
+    """
+    result = cursor.execute(sql)
+
+    #Create modmail timeouts table
+    sql = """
+    CREATE TABLE IF NOT EXISTS mm_timeouts (
+        timeout_id INTEGER PRIMARY KEY,
+        user INTEGER NOT NULL,
+        timestamp DATETIME DEFAULT NOW() NOT NULL
     );
     """
     result = cursor.execute(sql)
