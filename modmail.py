@@ -14,10 +14,20 @@ async def on_message(message):
 
     channel = message.channel
     if isinstance(channel, discord.channel.DMChannel):
-        await channel.send('Test')
+        if message.content == 'New':
+            await channel.send(db.open_ticket(message.author.id))
+        elif message.content == 'Get':
+            await channel.send(db.get_ticket_by_user(message.author.id))
+        elif message.content == 'Close':
+            ticket_id = db.get_ticket_by_user(message.author.id)
+            await channel.send(db.close_ticket(ticket_id))
+
 
 def ready():
-    db.init()
+    if db.init():
+        print('Database sucessfully initialized!')
+    else:
+        print('Error while initializing database!')
 
 ready()
 
