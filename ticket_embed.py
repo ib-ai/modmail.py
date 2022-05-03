@@ -1,21 +1,33 @@
 import discord
+import db
 
-async def user_embed(channel, message):
+def user_embed(guild, message):
     # Change this to message from staff member
     message_embed = discord.Embed(
-        title="New Mail from {0}".format(message.author),
+        title="New Mail from {0}".format(guild.name),
         description=message.content
     )
 
-    await channel.send(embed=message_embed)
+    return message_embed
 
-async def channel_embed(channel, message, member):
+def channel_embed(guild, ticket_id):
+
+    ticket = db.get_ticket(ticket_id)
+
+    ticket_member = guild.get_member(ticket['user'])
+
     message_embed = discord.Embed(
-        title="ModMail Conversation for {0}".format(member),
+        title="ModMail Conversation for {0}".format(ticket_member),
         description="User {0} has **{1}** roles\n Joined Discord: **{2}**\n Joined Server: **{3}**"
-            .format(member.mention, len(member.roles), member.created_at.strftime("%B %d %Y"), member.joined_at.strftime("%B %d %Y"))
+            .format(ticket_member.mention, len(ticket_member.roles), ticket_member.created_at.strftime("%B %d %Y"), ticket_member.joined_at.strftime("%B %d %Y"))
     )
 
-    message_embed.add_field(name="On {0}, user wrote".format(message.created_at.strftime("%B %d %Y %H:%M:%S %Z")), value=message.content)
+    responses = db.get_ticket_responses(ticket_id)
 
-    await channel.send(embed=message_embed)
+    for response in responses:
+        author = 'user'
+        if response['user'] != ticket['user']:
+            author = '{0} as server'.format(guild.get_member(response['user']))
+        message_embed.add_field(name="<t:{0}:R>, {1} wrote".format(response['timestamp'], author), value=response['response'], inline=False)
+
+    return message_embed
