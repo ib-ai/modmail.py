@@ -14,7 +14,7 @@ async def on_message(message):
 
     channel = message.channel
     if isinstance(channel, discord.channel.DMChannel):
-        await channel.send(db.test())
+        await channel.send('Test')
 
 def ready():
     db.init()
