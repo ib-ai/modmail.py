@@ -31,3 +31,24 @@ def channel_embed(guild, ticket_id):
         message_embed.add_field(name="<t:{0}:R>, {1} wrote".format(response['timestamp'], author), value=response['response'], inline=False)
 
     return message_embed
+
+def close_confirmation(member):
+    message_embed = discord.Embed(
+        description="Do you want to close the ModMail conversation for **{0}**".format(member)
+    )
+
+    return message_embed
+
+def reply_cancel(member):
+    message_embed = discord.Embed(
+        description="Replying to ModMail conversation for **{0}**".format(member)
+    )
+
+    return message_embed
+
+def closed_ticket(staff, member):
+    message_embed = discord.Embed(
+        description="**{0}** closed the ModMail conversation for **{1}**".format(staff, member)
+    )
+
+    return message_embed
