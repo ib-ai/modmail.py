@@ -41,6 +41,20 @@ def get_ticket_by_user(cursor, user):
         return ticket 
 
 @database
+def get_ticket_by_message(cursor, message_id):
+    sql = """
+        SELECT ticket_id, user, open, message_id
+        FROM mm_tickets
+        WHERE message_id=?
+    """
+    cursor.execute(sql, [message_id])
+    ticket = cursor.fetchone()
+    if ticket is None or len(ticket) == 0:
+        return {'ticket_id': -1, 'user': -1, 'open':0, 'message_id':-1}
+    else:
+        return ticket 
+
+@database
 def open_ticket(cursor, user):
     sql = """
         INSERT INTO mm_tickets (user)
@@ -48,6 +62,16 @@ def open_ticket(cursor, user):
     """
     cursor.execute(sql, [user])
     return cursor.lastrowid
+
+@database
+def update_ticket_message(cursor, ticket_id, message_id):
+    sql = """
+        UPDATE mm_tickets
+        SET message_id=?
+        WHERE ticket_id=?
+    """
+    cursor.execute(sql, [message_id, ticket_id])
+    return cursor.rowcount != 0
 
 @database
 def close_ticket(cursor, ticket_id):
@@ -58,7 +82,7 @@ def close_ticket(cursor, ticket_id):
     """
     cursor.execute(sql,[ticket_id])
 
-    return cursor.rowcount is not 0
+    return cursor.rowcount != 0
 
 @database
 def get_ticket_responses(cursor, ticket_id):
@@ -95,6 +119,10 @@ def init(cursor):
 
     #Create modmail ticket user index
     sql = "CREATE INDEX IF NOT EXISTS mm_tickets_user ON mm_tickets(user);"
+    result = cursor.execute(sql)
+
+    #Create modmail ticket message index
+    sql = "CREATE INDEX IF NOT EXISTS mm_tickets_message ON mm_tickets(message_id);"
     result = cursor.execute(sql)
 
     #Create modmail ticket repsonses table
