@@ -104,6 +104,20 @@ def add_ticket_response(cursor, ticket_id, user, response, as_server):
     return True
 
 @database
+def get_timeout(cursor, user):
+    sql = """
+        SELECT timestamp
+        FROM mm_timeouts
+        WHERE user=?
+    """
+    cursor.execute(sql , [user])
+    timeout = cursor.fetchone()
+    if timeout is None or len(timeout) == 0:
+        return False
+    else:
+        return timeout
+
+@database
 def init(cursor):
 
     #Create modmail tickets table
