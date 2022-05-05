@@ -39,6 +39,13 @@ def close_confirmation(member):
 
     return message_embed
 
+def timeout_confirmation(member):
+    message_embed = discord.Embed(
+        description="Do you want to timeout **{0}** for 24 hours?".format(member)
+    )
+
+    return message_embed
+
 def reply_cancel(member):
     message_embed = discord.Embed(
         description="Replying to ModMail conversation for **{0}**".format(member)
@@ -49,6 +56,13 @@ def reply_cancel(member):
 def closed_ticket(staff, member):
     message_embed = discord.Embed(
         description="**{0}** closed the ModMail conversation for **{1}**".format(staff, member)
+    )
+
+    return message_embed
+
+def user_timeout(timeout):
+    message_embed = discord.Embed(
+        description="You have been timed out. You will be able to message ModMail again after <t:{0}>.".format(timeout)
     )
 
     return message_embed
