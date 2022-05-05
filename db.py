@@ -118,6 +118,15 @@ def get_timeout(cursor, user):
         return timeout
 
 @database
+def set_timeout(cursor, user, timestamp):
+    sql = """
+        INSERT OR REPLACE INTO mm_timeouts (user, timestamp)
+        VALUES (?, ?)
+    """
+    cursor.execute(sql, [user, timestamp])
+    return True
+
+@database
 def init(cursor):
 
     #Create modmail tickets table

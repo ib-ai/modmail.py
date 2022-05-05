@@ -112,8 +112,9 @@ async def on_reaction_add(reaction, reaction_user):
                 if str(reaction.emoji) == '✅':
                     # Change below value to custom
                     timeout = datetime.datetime.now() + datetime.timedelta(days=1)
-                    await db.set_timeout(user, timeout)
-                    await ticket_user.send(embed=ticket_embed.user_timeout(int(timeout.timestamp())))
+                    timestamp = int(timeout.timestamp())
+                    db.set_timeout(ticket_user.id, timestamp)
+                    await ticket_user.send(embed=ticket_embed.user_timeout(timestamp))
             except asyncio.TimeoutError:
                 pass
 
@@ -129,7 +130,7 @@ async def handle_dm(message):
     timeout = db.get_timeout(user.id)
 
     if timeout != False:
-        await user.send(embed=ticket_embed.user_timeout(timeout))
+        await user.send(embed=ticket_embed.user_timeout(timeout['timestamp']))
         return
 
     ticket = db.get_ticket_by_user(user.id)
