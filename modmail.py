@@ -2,6 +2,7 @@ import discord
 import json
 import db, ticket_embed
 import asyncio
+import datetime
 
 with open('./config.json', 'r') as config_json:
     config = json.load(config_json)
@@ -98,6 +99,25 @@ async def on_reaction_add(reaction, reaction_user):
                 pass
 
             await confirmation.delete()
+        elif str(reaction.emoji) == '⏲️':
+            confirmation = await modmail_channel.send(embed=ticket_embed.timeout_confirmation(ticket_user))
+            await confirmation.add_reaction('✅')
+            await confirmation.add_reaction('❎')
+
+            def timeout_check(reaction, user):
+                return user == reaction_user and confirmation == reaction.message and (str(reaction.emoji) == '✅' or str(reaction.emoji) == '❎')
+
+            try:
+                reaction, user = await client.wait_for('reaction_add', timeout=60.0, check=timeout_check)
+                if str(reaction.emoji) == '✅':
+                    # Change below value to custom
+                    timeout = datetime.datetime.now() + datetime.timedelta(days=1)
+                    await db.set_timeout(user, timeout)
+                    await ticket_user.send(embed=ticket_embed.user_timeout(int(timeout.timestamp())))
+            except asyncio.TimeoutError:
+                pass
+
+            await confirmation.delete()
 
 
 async def handle_dm(message):
@@ -105,6 +125,12 @@ async def handle_dm(message):
 
     guild = client.get_guild(config['guild'])
     modmail_channel = guild.get_channel(config['channel'])
+
+    timeout = db.get_timeout(user.id)
+
+    if timeout != False:
+        await user.send(embed=ticket_embed.user_timeout(timeout))
+        return
 
     ticket = db.get_ticket_by_user(user.id)
 
