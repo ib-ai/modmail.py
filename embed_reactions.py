@@ -49,6 +49,7 @@ class embed_reactions():
                     await message.channel.send('Your message is too long. Please shorten your message or send in multiple parts.')
                     return
                 
+                await message.delete()
                 db.add_ticket_response(self.ticket['ticket_id'], self.reaction_user.id, response, True)
                 await ticket_user.send(embed=ticket_embed.user_embed(self.guild, response))
                 ticket_message = await self.modmail_channel.fetch_message(self.ticket['message_id'])
