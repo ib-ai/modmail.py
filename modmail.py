@@ -1,8 +1,7 @@
-import discord
-import json
-import db, ticket_embed
-import asyncio
-import datetime
+import discord, json, asyncio, datetime
+import db, ticket_embed, command_formatter, uformatter, embed_reactions
+from embed_reactions import embed_reactions
+from command_actions import command_actions, post_reactions
 
 with open('./config.json', 'r') as config_json:
     config = json.load(config_json)
@@ -20,7 +19,7 @@ async def on_message(message):
 
     if isinstance(channel, discord.channel.DMChannel):
         await handle_dm(message)
-    elif channel.id == config['channel']:
+    elif channel.id == config['channel'] and message.content.startswith(config['prefix']):
         await handle_server(message)
 
 @client.event
@@ -41,86 +40,16 @@ async def on_reaction_add(reaction, reaction_user):
 
         await reaction.remove(reaction_user)
 
-        ticket_user = guild.get_member(ticket['user'])
+        embed_actions = embed_reactions(client, guild, modmail_channel, reaction_user, ticket)
 
         if str(reaction.emoji) == '🗣️':
-            cancel = await modmail_channel.send(embed=ticket_embed.reply_cancel(ticket_user))
-            await cancel.add_reaction('❎')
-
-            def reply_cancel(reaction, user):
-                return user == reaction_user and cancel == reaction.message and str(reaction.emoji) == '❎'
-            def reply_message(message):
-                return message.author == reaction_user and message.channel == modmail_channel
-
-            try:
-                tasks = [
-                    asyncio.create_task(client.wait_for('reaction_add', timeout=60.0, check=reply_cancel), name='cancel'),
-                    asyncio.create_task(client.wait_for('message', timeout=60.0,check=reply_message), name='respond')
-                ]
-
-                done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
-
-                event: asyncio.Task = list(done)[0]
-
-                for task in pending:
-                    try:
-                        task.cancel()
-                    except asyncio.CancelledError:
-                        pass
-
-
-                if event.get_name() == 'respond':
-                    message = event.result()
-                    if  len(message.content) > 0:
-                        db.add_ticket_response(ticket['ticket_id'], reaction_user.id, message.content, True)
-                        await ticket_user.send(embed=ticket_embed.user_embed(guild, message))
-                        ticket_message = await modmail_channel.fetch_message(ticket['message_id'])
-                        await ticket_message.edit(embed=ticket_embed.channel_embed(guild, ticket['ticket_id']))
-            except asyncio.TimeoutError:
-                pass
-
-            await cancel.delete()
+            await embed_actions.message_reply()    
         elif str(reaction.emoji) == '❎':
-            confirmation = await modmail_channel.send(embed=ticket_embed.close_confirmation(ticket_user))
-            await confirmation.add_reaction('✅')
-            await confirmation.add_reaction('❎')
-
-            def close_check(reaction, user):
-                return user == reaction_user and confirmation == reaction.message and (str(reaction.emoji) == '✅' or str(reaction.emoji) == '❎')
-
-            try:
-                reaction, user = await client.wait_for('reaction_add', timeout=60.0, check=close_check)
-                if str(reaction.emoji) == '✅':
-                    db.close_ticket(ticket['ticket_id'])
-                    ticket_message = await modmail_channel.fetch_message(ticket['message_id'])
-                    await ticket_message.delete()
-                    await modmail_channel.send(embed=ticket_embed.closed_ticket(reaction_user, ticket_user))
-            except asyncio.TimeoutError:
-                pass
-
-            await confirmation.delete()
+            await embed_actions.message_close()    
         elif str(reaction.emoji) == '⏲️':
-            confirmation = await modmail_channel.send(embed=ticket_embed.timeout_confirmation(ticket_user))
-            await confirmation.add_reaction('✅')
-            await confirmation.add_reaction('❎')
-
-            def timeout_check(reaction, user):
-                return user == reaction_user and confirmation == reaction.message and (str(reaction.emoji) == '✅' or str(reaction.emoji) == '❎')
-
-            try:
-                reaction, user = await client.wait_for('reaction_add', timeout=60.0, check=timeout_check)
-                if str(reaction.emoji) == '✅':
-                    # Change below value to custom
-                    timeout = datetime.datetime.now() + datetime.timedelta(days=1)
-                    timestamp = int(timeout.timestamp())
-                    db.set_timeout(ticket_user.id, timestamp)
-                    await ticket_user.send(embed=ticket_embed.user_timeout(timestamp))
-            except asyncio.TimeoutError:
-                pass
-
-            await confirmation.delete()
-
-
+            ticket_user = guild.get_member(ticket['user'])
+            await embed_actions.message_timeout(ticket_user)    
+            
 async def handle_dm(message):
     user = message.author
 
@@ -128,9 +57,20 @@ async def handle_dm(message):
     modmail_channel = guild.get_channel(config['channel'])
 
     timeout = db.get_timeout(user.id)
+    current_time = int(datetime.datetime.now().timestamp())
 
-    if timeout != False:
+    if timeout != False and current_time < timeout['timestamp']:
         await user.send(embed=ticket_embed.user_timeout(timeout['timestamp']))
+        return
+    
+    response = uformatter.format_message(message)
+
+    if not response.strip():
+        return
+    
+    # ! Fix for longer messages
+    if len(response) > 1000:
+        await message.channel.send('Your message is too long. Please shorten your message or send in multiple parts.')
         return
 
     ticket = db.get_ticket_by_user(user.id)
@@ -138,14 +78,12 @@ async def handle_dm(message):
     if ticket['ticket_id'] == -1:
         ticket_id = db.open_ticket(user.id)
         ticket = db.get_ticket(ticket_id)
-
-    db.add_ticket_response(ticket['ticket_id'], user.id, message.content, False)
+ 
+    db.add_ticket_response(ticket['ticket_id'], user.id, response, False)
     ticket_message = await modmail_channel.send(embed=ticket_embed.channel_embed(guild, ticket['ticket_id']))
     db.update_ticket_message(ticket['ticket_id'], ticket_message.id)
     await message.add_reaction('📨')
-    await ticket_message.add_reaction('🗣️')
-    await ticket_message.add_reaction('❎')
-    await ticket_message.add_reaction('⏲️')
+    await post_reactions(ticket_message)
 
     if ticket['message_id'] is not None and ticket['message_id'] != -1:
         old_ticket_message = await modmail_channel.fetch_message(ticket['message_id'])
@@ -153,8 +91,32 @@ async def handle_dm(message):
 
 
 async def handle_server(message):
-    pass   
+    command, arguments = command_formatter.get_command(config['prefix'], message.content)
+    server_user = message.author
+    guild = client.get_guild(config['guild'])
+    modmail_channel = guild.get_channel(config['channel'])
 
+    print(command, arguments)
+
+    server_actions = command_actions(client, guild, modmail_channel, server_user, message, arguments)
+
+    try:
+        if command == 'ping':
+            await message.channel.send('Pong! Latency: {0}ms'.format(int(client.latency)))
+        elif command == 'open':
+            await server_actions.open_ticket()
+        elif command == 'refresh':
+            await server_actions.refresh_ticket()
+        elif command == 'close':
+            await server_actions.close_ticket()
+        elif command == 'timeout':
+            await server_actions.timeout_ticket()
+        elif command == 'untimeout':
+            await server_actions.untimeout_ticket()
+
+    except RuntimeError as e:
+        await message.channel.send(str(e))
+        
 def ready():
     if db.init():
         print('Database sucessfully initialized!')
@@ -166,6 +128,10 @@ def ready():
     
     if "guild" not in config:
         print('Failed to find Guild from provided ID.')
+    
+    if "prefix" not in config:
+        print('Failed to find prefix in config.')
+
 
 ready()
 
