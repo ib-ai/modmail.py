@@ -9,7 +9,20 @@ with open('./config.json', 'r') as config_json:
 intents = discord.Intents.default()
 intents.members = True
 client = discord.Client(intents=intents)
+guild = None
+modmail_channel = None
 
+def bot_ready(func):
+    def wrapper(*args,**kwargs):
+        if guild is None or modmail_channel is None:
+            print('Bot not ready yet')
+            return
+
+        ret = func(cursor, *args, *kwargs)
+        return ret
+    return wrapper
+
+@bot_ready
 @client.event
 async def on_message(message):
     if message.author == client.user:
@@ -22,39 +35,59 @@ async def on_message(message):
     elif channel.id == config['channel'] and message.content.startswith(config['prefix']):
         await handle_server(message)
 
+@bot_ready
 @client.event
-async def on_reaction_add(reaction, reaction_user):
-    if reaction_user == client.user:
+async def on_raw_reaction_add(payload):
+    #Ignore if self
+    if payload.user_id == client.user.id:
         return
 
-    guild = client.get_guild(config['guild'])
-    modmail_channel = guild.get_channel(config['channel'])
+    #Ignore if not in guild
+    if not payload.guild_id or not payload.guild_id == config['guild']:
+        return
 
-    message = reaction.message
-    channel = message.channel
+    #Ignore if not in modmail channel
+    if not payload.channel_id == config['channel']:
+        return
 
-    if channel.id == config['channel']:
-        ticket = db.get_ticket_by_message(message.id)
-        if ticket['ticket_id'] == -1:
-            return
+    #Ignore if not unicode emoji
+    if not payload.emoji.is_unicode_emoji():
+        return
 
-        await reaction.remove(reaction_user)
+    #Get member object
+    reaction_user = payload.member
 
-        embed_actions = embed_reactions(client, guild, modmail_channel, reaction_user, ticket)
+    #Ignore if bot
+    if reaction_user.bot:
+        return
 
-        if str(reaction.emoji) == '🗣️':
-            await embed_actions.message_reply()    
-        elif str(reaction.emoji) == '❎':
-            await embed_actions.message_close()    
-        elif str(reaction.emoji) == '⏲️':
-            ticket_user = guild.get_member(ticket['user'])
-            await embed_actions.message_timeout(ticket_user)    
+    #Get unicode emoji
+    emoji = payload.emoji.name
+
+    #Get message object
+    message = await modmail_channel.fetch_message(payload.message_id)
+
+    await handle_reaction(emoji, message, reaction_user)
+
+async def handle_reaction(emoji, message, reaction_user):
+    ticket = db.get_ticket_by_message(message.id)
+    if ticket['ticket_id'] == -1:
+        return
+
+    await message.remove_reaction(emoji, reaction_user)
+
+    embed_actions = embed_reactions(client, guild, modmail_channel, reaction_user, ticket)
+
+    if str(emoji) == '🗣️':
+        await embed_actions.message_reply()    
+    elif str(emoji) == '❎':
+        await embed_actions.message_close()    
+    elif str(emoji) == '⏲️':
+        ticket_user = guild.get_member(ticket['user'])
+        await embed_actions.message_timeout(ticket_user)    
             
 async def handle_dm(message):
     user = message.author
-
-    guild = client.get_guild(config['guild'])
-    modmail_channel = guild.get_channel(config['channel'])
 
     timeout = db.get_timeout(user.id)
     current_time = int(datetime.datetime.now().timestamp())
@@ -93,8 +126,6 @@ async def handle_dm(message):
 async def handle_server(message):
     command, arguments = command_formatter.get_command(config['prefix'], message.content)
     server_user = message.author
-    guild = client.get_guild(config['guild'])
-    modmail_channel = guild.get_channel(config['channel'])
 
     print(command, arguments)
 
@@ -117,22 +148,48 @@ async def handle_server(message):
     except RuntimeError as e:
         await message.channel.send(str(e))
         
+@client.event
+async def on_ready():
+    global guild, modmail_channel
+
+    guild = client.get_guild(config['guild'])
+
+    if guild is None:
+        print('Failed to find Guild from provided ID.')
+        await client.close()
+        return
+
+    modmail_channel = guild.get_channel(config['channel'])
+
+    if modmail_channel is None:
+        print('Failed to find Modmail Channel from provided ID.')    
+        await client.close()
+        return
+
 def ready():
     if db.init():
         print('Database sucessfully initialized!')
     else:
         print('Error while initializing database!')
-    
-    if "channel" not in config:
-        print('Failed to find Modmail text channel from provided ID.')
-    
+        return False
+
     if "guild" not in config:
-        print('Failed to find Guild from provided ID.')
+        print('No Guild ID provided.')
+        return False
+
+    if "channel" not in config:
+        print('No Channel ID provided.')
+        return False
     
     if "prefix" not in config:
         print('Failed to find prefix in config.')
+        return False
 
+    return True
 
-ready()
+success = ready()
 
-client.run(config['token'])
+if success:
+    client.run(config['token'])
+else:
+    print('Error during staring process')
