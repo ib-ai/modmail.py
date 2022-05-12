@@ -22,7 +22,7 @@ def get_member(guild, input):
         return None
 
 def assert_member(guild, arguments, position):
-    if len(arguments) < position:
+    if len(arguments) <= position:
         raise RuntimeError("Please specify a valid user.")
     
     member = get_member(guild, arguments[position])
