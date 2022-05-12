@@ -14,8 +14,6 @@ class command_actions():
     
 
     async def open_ticket(self):
-        command_formatter.assert_arguments(self.arguments, 1)
-
         member = command_formatter.assert_member(self.guild, self.arguments, 0)
 
         ticket = db.get_ticket_by_user(member.id)
