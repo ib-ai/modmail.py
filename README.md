@@ -1,2 +1,2 @@
 # modmail.py
-Modmail, but in Python.
+ModMail, but in Python.
