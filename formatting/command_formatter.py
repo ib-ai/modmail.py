@@ -5,7 +5,16 @@ MEMBER_MENTION_PATTERN = re.compile('^<@!?\\d{17,20}>$')
 NAME_PATTERN = re.compile('^.{2,32}#[0-9]{4}$')
 
 def get_command(prefix, content):
-    command_split = content[len(prefix):].split(' ');
+    """Returns the command and the following arguments when given the message content.
+
+    Args:
+        prefix (str): The specified bot prefix passed through from bot config.
+        content (str): The contents of the message.
+
+    Returns:
+        tuple: A tuple containing the command itself and array of arguments.
+    """    
+    command_split = content[len(prefix):].split(' ')
     return command_split[0], command_split[1:]
 
 def get_member(guild, input):
@@ -21,11 +30,8 @@ def get_member(guild, input):
     else:
         return None
 
-def assert_member(guild, arguments, position):
-    if len(arguments) <= position:
-        raise RuntimeError("Please specify a valid user.")
-    
-    member = get_member(guild, arguments[position])
+def assert_member(guild, argument):    
+    member = get_member(guild, argument)
 
     if member is None:
         raise RuntimeError("Please specify a valid user.")
