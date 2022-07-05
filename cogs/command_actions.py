@@ -1,6 +1,6 @@
 import datetime, asyncio
-import formatting.command_formatter as command_formatter, db, ticket_embed
-from actions.embed_reactions import embed_reactions
+import utils.umember as umember, db, utils.ticket_embed as ticket_embed
+from utils.embed_reactions import embed_reactions
 from discord.ext import commands
 
 class CommandActions(commands.Cog):
@@ -32,7 +32,7 @@ class CommandActions(commands.Cog):
     async def open_ticket(self, ctx, member):
         """Opens ticket for specified user if no tickets are currently open."""
 
-        member = command_formatter.assert_member(ctx.guild, member)
+        member = umember.assert_member(ctx.guild, member)
 
         ticket = db.get_ticket_by_user(member.id)
 
@@ -53,7 +53,7 @@ class CommandActions(commands.Cog):
     async def refresh_ticket(self, ctx, member):
         """Resends embed for specified user if there is a ticket that is already open."""
 
-        member = command_formatter.assert_member(ctx.guild, member)
+        member = umember.assert_member(ctx.guild, member)
 
         ticket = db.get_ticket_by_user(member.id)
 
@@ -75,7 +75,7 @@ class CommandActions(commands.Cog):
     async def close_ticket(self, ctx, member):
         """Closes ticket for specified user given that a ticket is already open."""
 
-        member = command_formatter.assert_member(ctx.guild, member)
+        member = umember.assert_member(ctx.guild, member)
 
         ticket = db.get_ticket_by_user(member.id)
 
@@ -91,7 +91,7 @@ class CommandActions(commands.Cog):
     async def timeout_ticket(self, ctx, member):
         """Times out specified user."""
 
-        member = command_formatter.assert_member(ctx.guild, member)
+        member = umember.assert_member(ctx.guild, member)
 
         embed_commands = embed_reactions(self.bot, ctx.guild, self.modmail_channel, ctx.author)
         await embed_commands.message_timeout(member)
@@ -101,7 +101,7 @@ class CommandActions(commands.Cog):
     async def untimeout_ticket(self, ctx, member):
         """Removes timeout for specified user given that user is currently timed out."""
 
-        member = command_formatter.assert_member(ctx.guild, member)
+        member = umember.assert_member(ctx.guild, member)
 
         timeout = db.get_timeout(member.id)
         current_time = int(datetime.datetime.now().timestamp())

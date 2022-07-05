@@ -1,5 +1,5 @@
 import asyncio, datetime
-import db, formatting.uformatter as uformatter, ticket_embed
+import db, utils.uformatter as uformatter, utils.ticket_embed as ticket_embed
 
 class embed_reactions():
     """Class to contain channel embed reaction methods."""

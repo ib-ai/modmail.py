@@ -1,8 +1,8 @@
 import datetime
 from discord.ext import commands
 
-import ticket_embed, db
-import formatting.uformatter as uformatter
+import utils.ticket_embed as ticket_embed, db
+import utils.uformatter as uformatter
 from cogs.command_actions import post_reactions
 
 class Listeners(commands.Cog):

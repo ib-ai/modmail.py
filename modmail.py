@@ -1,7 +1,7 @@
 import discord, json
 from discord.ext import commands
 
-import db, actions.embed_reactions as embed_reactions
+import db, utils.embed_reactions as embed_reactions
 from cogs.command_actions import CommandActions
 from cogs.listeners import Listeners
 
