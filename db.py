@@ -2,7 +2,7 @@ import sqlite3
 
 def database(func):
     def wrapper(*args,**kwargs):
-        conn = sqlite3.connect('modmail.db')
+        conn = sqlite3.connect('/database/modmail.db')
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         ret = func(cursor, *args, *kwargs)
