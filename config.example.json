@@ -2,5 +2,6 @@
   "token": "",
   "guild": 0,
   "channel": 0,
-  "prefix": ""
+  "prefix": "",
+  "status": ""
 }

@@ -9,6 +9,7 @@ from cogs.listeners import Listeners
 
 with open('./config.json', 'r') as config_json:
     config = json.load(config_json)
+    
     # Load from environment variable overrides
     if "MODMAIL_TOKEN" in os.environ:
         config.token = os.getenv("MODMAIL_TOKEN")
@@ -18,6 +19,8 @@ with open('./config.json', 'r') as config_json:
         config.channel = os.getenv("MODMAIL_CHANNEL")
     if "MODMAIL_PREFIX" in os.environ:
         config.prefix = os.getenv("MODMAIL_PREFIX")
+    if "MODMAIL_STATUS" in os.environ:
+        config.status = os.getenv("MODMAIL_STATUS")
 
 intents = discord.Intents.default()
 intents.members = True
@@ -115,6 +118,8 @@ async def on_ready():
         print('Failed to find Modmail Channel from provided ID.')    
         await bot.close()
         return
+      
+    await bot.change_presence(activity=discord.Game(name=config['status']), status=discord.Status.online)
 
     bot.add_cog(Listeners(bot, guild, modmail_channel))
     bot.add_cog(CommandActions(bot, modmail_channel))
