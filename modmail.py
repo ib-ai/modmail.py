@@ -9,7 +9,7 @@ from cogs.listeners import Listeners
 
 with open('./config.json', 'r') as config_json:
     config = json.load(config_json)
-    # Load from envrionment variable overrides
+    # Load from environment variable overrides
     if "MODMAIL_TOKEN" in os.environ:
         config.token = os.getenv("MODMAIL_TOKEN")
     if "MODMAIL_GUILD" in os.environ:
