@@ -1,3 +1,5 @@
+import os
+
 import discord, json
 from discord.ext import commands
 
@@ -7,6 +9,15 @@ from cogs.listeners import Listeners
 
 with open('./config.json', 'r') as config_json:
     config = json.load(config_json)
+    # Load from environment variable overrides
+    if "MODMAIL_TOKEN" in os.environ:
+        config.token = os.getenv("MODMAIL_TOKEN")
+    if "MODMAIL_GUILD" in os.environ:
+        config.guild = os.getenv("MODMAIL_GUILD")
+    if "MODMAIL_CHANNEL" in os.environ:
+        config.channel = os.getenv("MODMAIL_CHANNEL")
+    if "MODMAIL_PREFIX" in os.environ:
+        config.prefix = os.getenv("MODMAIL_PREFIX")
 
 intents = discord.Intents.default()
 intents.members = True
