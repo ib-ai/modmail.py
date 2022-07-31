@@ -21,5 +21,5 @@ docker build -t modmail-py .
 4. Run the docker container.
 
 ```
-docker run -it --rm --name modmail-py modmail-py
+docker run -it -v /database:/database/ --name modmail-py modmail-py
 ```
