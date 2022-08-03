@@ -12,15 +12,15 @@ with open('./config.json', 'r') as config_json:
     
     # Load from environment variable overrides
     if "MODMAIL_TOKEN" in os.environ:
-        config.token = os.getenv("MODMAIL_TOKEN")
+        config["token"] = os.getenv("MODMAIL_TOKEN")
     if "MODMAIL_GUILD" in os.environ:
-        config.guild = os.getenv("MODMAIL_GUILD")
+        config["guild"] = os.getenv("MODMAIL_GUILD")
     if "MODMAIL_CHANNEL" in os.environ:
-        config.channel = os.getenv("MODMAIL_CHANNEL")
+        config["channel"] = os.getenv("MODMAIL_CHANNEL")
     if "MODMAIL_PREFIX" in os.environ:
-        config.prefix = os.getenv("MODMAIL_PREFIX")
+        config["prefix"] = os.getenv("MODMAIL_PREFIX")
     if "MODMAIL_STATUS" in os.environ:
-        config.status = os.getenv("MODMAIL_STATUS")
+        config["status"] = os.getenv("MODMAIL_STATUS")
 
 intents = discord.Intents.default()
 intents.members = True
