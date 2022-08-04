@@ -85,7 +85,7 @@ async def handle_reaction(emoji, message, reaction_user):
         message (discord.Message): The current message.
         reaction_user (discord.Member): The user who triggered the reaction event.
     """
-    ticket = db.get_ticket_by_message(message.id)
+    ticket = await db.get_ticket_by_message(message.id)
     if ticket['ticket_id'] == -1:
         return
 
@@ -104,6 +104,15 @@ async def handle_reaction(emoji, message, reaction_user):
 @bot.event
 async def on_ready():
     global guild, modmail_channel
+
+    await bot.wait_until_ready()
+
+    success = await ready()
+
+    if not success:
+        print('Error during starting process')
+        await bot.close()
+        return
 
     guild = bot.get_guild(config['guild'])
 
@@ -124,8 +133,8 @@ async def on_ready():
     bot.add_cog(Listeners(bot, guild, modmail_channel))
     bot.add_cog(CommandActions(bot, modmail_channel))
 
-def ready():
-    if db.init():
+async def ready():
+    if await db.init():
         print('Database sucessfully initialized!')
     else:
         print('Error while initializing database!')
@@ -144,11 +153,5 @@ def ready():
         return False
 
     return True
-
-success = ready()
-
-if success:    
-    bot.run(config['token']) 
-
-else:
-    print('Error during starting process')
+   
+bot.run(config['token']) 

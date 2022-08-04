@@ -43,7 +43,7 @@ class Listeners(commands.Cog):
         
         user = message.author
 
-        timeout = db.get_timeout(user.id)
+        timeout = await db.get_timeout(user.id)
         current_time = int(datetime.datetime.now().timestamp())
 
         if timeout != False and current_time < timeout['timestamp']:
@@ -60,15 +60,15 @@ class Listeners(commands.Cog):
             await message.channel.send('Your message is too long. Please shorten your message or send in multiple parts.')
             return
 
-        ticket = db.get_ticket_by_user(user.id)
+        ticket = await db.get_ticket_by_user(user.id)
 
         if ticket['ticket_id'] == -1:
-            ticket_id = db.open_ticket(user.id)
-            ticket = db.get_ticket(ticket_id)
+            ticket_id = await db.open_ticket(user.id)
+            ticket = await db.get_ticket(ticket_id)
     
-        db.add_ticket_response(ticket['ticket_id'], user.id, response, False)
-        ticket_message = await self.modmail_channel.send(embed=ticket_embed.channel_embed(self.guild, ticket['ticket_id']))
-        db.update_ticket_message(ticket['ticket_id'], ticket_message.id)
+        await db.add_ticket_response(ticket['ticket_id'], user.id, response, False)
+        ticket_message = await self.modmail_channel.send(embed=await ticket_embed.channel_embed(self.guild, ticket['ticket_id']))
+        await db.update_ticket_message(ticket['ticket_id'], ticket_message.id)
         await message.add_reaction('📨')
         await post_reactions(ticket_message)
 

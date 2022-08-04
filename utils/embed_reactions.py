@@ -64,10 +64,10 @@ class embed_reactions():
                     return
                 
                 await message.delete()
-                db.add_ticket_response(self.ticket['ticket_id'], self.reaction_user.id, response, True)
+                await db.add_ticket_response(self.ticket['ticket_id'], self.reaction_user.id, response, True)
                 await ticket_user.send(embed=ticket_embed.user_embed(self.guild, response))
                 ticket_message = await self.modmail_channel.fetch_message(self.ticket['message_id'])
-                await ticket_message.edit(embed=ticket_embed.channel_embed(self.guild, self.ticket['ticket_id']))
+                await ticket_message.edit(embed=await ticket_embed.channel_embed(self.guild, self.ticket['ticket_id']))
         except asyncio.TimeoutError:
             pass
 
@@ -88,7 +88,7 @@ class embed_reactions():
         try:
             reaction, user = await self.bot.wait_for('reaction_add', timeout=60.0, check=close_check)
             if str(reaction.emoji) == '✅':
-                db.close_ticket(self.ticket['ticket_id'])
+                await db.close_ticket(self.ticket['ticket_id'])
                 ticket_message = await self.modmail_channel.fetch_message(self.ticket['message_id'])
                 await ticket_message.delete()
                 await self.modmail_channel.send(embed=ticket_embed.closed_ticket(self.reaction_user, ticket_user))
@@ -117,7 +117,7 @@ class embed_reactions():
                 # Change below value to custom
                 timeout = datetime.datetime.now() + datetime.timedelta(days=1)
                 timestamp = int(timeout.timestamp())
-                db.set_timeout(ticket_user.id, timestamp)
+                await db.set_timeout(ticket_user.id, timestamp)
                 await ticket_user.send(embed=ticket_embed.user_timeout(timestamp))
                 await self.modmail_channel.send('{0} has been successfully timed out for 24 hours. They will be able to message ModMail again after <t:{1}>.'.format(ticket_user, timestamp))
         except asyncio.TimeoutError:

@@ -1,135 +1,164 @@
+import asyncio
 import sqlite3
 
-def database(func):
-    def wrapper(*args,**kwargs):
-        conn = sqlite3.connect('/database/modmail.db')
-        conn.row_factory = sqlite3.Row
-        cursor = conn.cursor()
-        ret = func(cursor, *args, *kwargs)
-        conn.commit()
-        conn.close()
-        return ret
-    return wrapper
+conn = sqlite3.connect('/database/modmail.db', check_same_thread=False)
+conn.row_factory = sqlite3.Row
 
-@database
-def get_ticket(cursor, ticket_id):
+async def get_ticket(ticket_id):
     sql = """
         SELECT ticket_id, user, open, message_id
         FROM mm_tickets
         WHERE ticket_id=?
     """
-    cursor.execute(sql, [ticket_id])
-    ticket = cursor.fetchone()
+    cursor = conn.cursor()
+    blocking_insert = lambda: cursor.execute(sql, [ticket_id])
+    result = await asyncio.to_thread(blocking_insert)
+    ticket = result.fetchone()
+    cursor.close()
     if ticket is None or len(ticket) == 0:
         return -1
     else:
         return ticket
 
-@database
-def get_ticket_by_user(cursor, user):
+async def get_ticket_by_user(user):
     sql = """
         SELECT ticket_id, user, open, message_id
         FROM mm_tickets
         WHERE user=?
         AND open=1
     """
-    cursor.execute(sql, [user])
-    ticket = cursor.fetchone()
+    cursor = conn.cursor()
+    blocking_insert = lambda: cursor.execute(sql, [user])
+    result = await asyncio.to_thread(blocking_insert)
+    ticket = result.fetchone()
+    cursor.close()
     if ticket is None or len(ticket) == 0:
         return {'ticket_id': -1, 'user': -1, 'open':0, 'message_id':-1}
     else:
         return ticket 
 
-@database
-def get_ticket_by_message(cursor, message_id):
+async def get_ticket_by_message(message_id):
     sql = """
         SELECT ticket_id, user, open, message_id
         FROM mm_tickets
         WHERE message_id=?
     """
-    cursor.execute(sql, [message_id])
-    ticket = cursor.fetchone()
+    cursor = conn.cursor()
+    blocking_insert = lambda: cursor.execute(sql, [message_id])
+    result = await asyncio.to_thread(blocking_insert)
+    ticket = result.fetchone()
+    cursor.close()
     if ticket is None or len(ticket) == 0:
         return {'ticket_id': -1, 'user': -1, 'open':0, 'message_id':-1}
     else:
         return ticket 
 
-@database
-def open_ticket(cursor, user):
+async def open_ticket(user):
     sql = """
         INSERT INTO mm_tickets (user)
         VALUES (?)
     """
-    cursor.execute(sql, [user])
-    return cursor.lastrowid
+    cursor = conn.cursor()
+    blocking_insert = lambda: cursor.execute(sql, [user])
+    result = await asyncio.to_thread(blocking_insert)
+    rowid = result.lastrowid
+    conn.commit()
+    cursor.close()
+    return rowid
 
-@database
-def update_ticket_message(cursor, ticket_id, message_id):
+async def update_ticket_message(ticket_id, message_id):
     sql = """
         UPDATE mm_tickets
         SET message_id=?
         WHERE ticket_id=?
     """
-    cursor.execute(sql, [message_id, ticket_id])
-    return cursor.rowcount != 0
+    cursor = conn.cursor()
+    blocking_insert = lambda: cursor.execute(sql, [message_id, ticket_id])
+    result = await asyncio.to_thread(blocking_insert)
+    rowcount = result.rowcount != 0
+    conn.commit()
+    cursor.close()
+    return rowcount
 
-@database
-def close_ticket(cursor, ticket_id):
+async def close_ticket(ticket_id):
     sql = """
         UPDATE mm_tickets
         SET open=0
         WHERE ticket_id=?
     """
-    cursor.execute(sql,[ticket_id])
+    cursor = conn.cursor()
+    blocking_insert = lambda: cursor.execute(sql,[ticket_id])
+    result = await asyncio.to_thread(blocking_insert)
+    rowcount = result.rowcount != 0
+    conn.commit()
+    cursor.close()
 
-    return cursor.rowcount != 0
+    return rowcount
 
-@database
-def get_ticket_responses(cursor, ticket_id):
+async def get_ticket_responses(ticket_id):
     sql = """
         SELECT user, response, timestamp, as_server
         FROM mm_ticket_responses
         WHERE ticket_id=?
     """
-    cursor.execute(sql, [ticket_id])
-    return cursor.fetchall()
+    cursor = conn.cursor()
+    blocking_insert = lambda: cursor.execute(sql, [ticket_id])
+    result = await asyncio.to_thread(blocking_insert)
+    responses = result.fetchall()
+    cursor.close()
+    return responses
 
-@database
-def add_ticket_response(cursor, ticket_id, user, response, as_server):
+async def add_ticket_response(ticket_id, user, response, as_server):
     sql = """
         INSERT INTO mm_ticket_responses (ticket_id, user, response, as_server)
         VALUES (?, ?, ?, ?)
     """
-    cursor.execute(sql, [ticket_id, user, response, as_server])
+    cursor = conn.cursor()
+    blocking_insert = lambda: cursor.execute(sql, [ticket_id, user, response, as_server])
+    await asyncio.to_thread(blocking_insert)
+    conn.commit()
+    cursor.close()
     return True
 
-@database
-def get_timeout(cursor, user):
+async def get_timeout(user):
     sql = """
         SELECT timestamp
         FROM mm_timeouts
         WHERE user=?
     """
-    cursor.execute(sql , [user])
-    timeout = cursor.fetchone()
+    cursor = conn.cursor()
+    blocking_insert = lambda: cursor.execute(sql , [user])
+    result = await asyncio.to_thread(blocking_insert)
+    timeout = result.fetchone()
+    cursor.close()
     if timeout is None or len(timeout) == 0:
         return False
     else:
         return timeout
 
-@database
-def set_timeout(cursor, user, timestamp):
+async def set_timeout(user, timestamp):
     sql = """
         INSERT OR REPLACE INTO mm_timeouts (user, timestamp)
         VALUES (?, ?)
     """
-    cursor.execute(sql, [user, timestamp])
+    cursor = conn.cursor()
+    blocking_insert = lambda: cursor.execute(sql, [user, timestamp])
+    await asyncio.to_thread(blocking_insert)
+    conn.commit()
+    cursor.close()
     return True
 
-@database
-def init(cursor):
+async def init():
 
-    #Create modmail tickets table
+    # Create modmail tickets table
+    # Create modmail ticket user index
+    # Create modmail ticket message index
+    # Create modmail ticket responses table
+    # Create modmail ticket response ticket id index
+    # Create modmail ticket response user index
+    # Create modmail timeouts table
+    # Create modmail timeout user index
+
     sql = """
     CREATE TABLE IF NOT EXISTS mm_tickets (
         ticket_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -137,19 +166,8 @@ def init(cursor):
         open BOOLEAN DEFAULT 1 NOT NULL,
         message_id INTEGER
     );
-    """
-    result = cursor.execute(sql)
-
-    #Create modmail ticket user index
-    sql = "CREATE INDEX IF NOT EXISTS mm_tickets_user ON mm_tickets(user);"
-    result = cursor.execute(sql)
-
-    #Create modmail ticket message index
-    sql = "CREATE INDEX IF NOT EXISTS mm_tickets_message ON mm_tickets(message_id);"
-    result = cursor.execute(sql)
-
-    #Create modmail ticket repsonses table
-    sql = """
+    CREATE INDEX IF NOT EXISTS mm_tickets_user ON mm_tickets(user);
+    CREATE INDEX IF NOT EXISTS mm_tickets_message ON mm_tickets(message_id);
     CREATE TABLE IF NOT EXISTS mm_ticket_responses (
         response_id INTEGER PRIMARY KEY AUTOINCREMENT,
         ticket_id INTEGER,
@@ -159,29 +177,19 @@ def init(cursor):
         as_server BOOLEAN NOT NULL,
         FOREIGN KEY (ticket_id) REFERENCES mm_tickets (ticket_id)
     );
-    """
-    result = cursor.execute(sql)
-
-    #Create modmail ticket response ticket id index
-    sql = "CREATE INDEX IF NOT EXISTS mm_ticket_responses_ticket_id ON mm_ticket_responses(ticket_id);"
-    result = cursor.execute(sql)
-
-    #Create modmail ticket response user index
-    sql = "CREATE INDEX IF NOT EXISTS mm_ticket_responses_user ON mm_ticket_responses(user);"
-    result = cursor.execute(sql)
-
-    #Create modmail timeouts table
-    sql = """
+    CREATE INDEX IF NOT EXISTS mm_ticket_responses_ticket_id ON mm_ticket_responses(ticket_id);
+    CREATE INDEX IF NOT EXISTS mm_ticket_responses_user ON mm_ticket_responses(user);
     CREATE TABLE IF NOT EXISTS mm_timeouts (
         timeout_id INTEGER PRIMARY KEY AUTOINCREMENT,
         user INTEGER NOT NULL UNIQUE,
         timestamp TIMESTAMP DEFAULT (strftime('%s', 'now')) NOT NULL
     );
+    CREATE UNIQUE INDEX IF NOT EXISTS mm_timeouts_user ON mm_timeouts(user);
     """
-    result = cursor.execute(sql)
-
-    #Create modmail timeout user index
-    sql = "CREATE UNIQUE INDEX IF NOT EXISTS mm_timeouts_user ON mm_timeouts(user);"
-    result = cursor.execute(sql)
+    cursor = conn.cursor()
+    blocking_insert = lambda: cursor.executescript(sql)
+    await asyncio.to_thread(blocking_insert)
+    conn.commit()
+    cursor.close()
 
     return True

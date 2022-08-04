@@ -19,7 +19,7 @@ def user_embed(guild, message):
 
     return message_embed
 
-def channel_embed(guild, ticket_id):
+async def channel_embed(guild, ticket_id):
     """Returns formatted embed for channel.
 
     Args:
@@ -30,7 +30,7 @@ def channel_embed(guild, ticket_id):
         discord.Embed: Channel embed containing message and user content.
     """
 
-    ticket = db.get_ticket(ticket_id)
+    ticket = await db.get_ticket(ticket_id)
 
     ticket_member = guild.get_member(ticket['user'])
 
@@ -40,7 +40,7 @@ def channel_embed(guild, ticket_id):
             .format(ticket_member.mention, len(ticket_member.roles), ticket_member.created_at.strftime("%B %d %Y"), ticket_member.joined_at.strftime("%B %d %Y"))
     )
 
-    responses = db.get_ticket_responses(ticket_id)
+    responses = await db.get_ticket_responses(ticket_id)
 
     for response in responses:
         author = 'user'
