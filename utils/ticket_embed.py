@@ -44,7 +44,7 @@ def channel_embed(guild, ticket_id):
 
     for response in responses:
         author = 'user'
-        if response['user'] != ticket['user']:
+        if response['as_server']:
             author = '{0} as server'.format(guild.get_member(response['user']))
         message_embed.add_field(name="<t:{0}:R>, {1} wrote".format(response['timestamp'], author), value=response['response'], inline=False)
 
