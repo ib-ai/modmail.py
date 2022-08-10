@@ -1,5 +1,6 @@
 import datetime
 from discord.ext import commands
+import discord
 
 import utils.ticket_embed as ticket_embed, db
 import utils.uformatter as uformatter
@@ -65,16 +66,22 @@ class Listeners(commands.Cog):
         if ticket['ticket_id'] == -1:
             ticket_id = db.open_ticket(user.id)
             ticket = db.get_ticket(ticket_id)
-    
-        db.add_ticket_response(ticket['ticket_id'], user.id, response, False)
-        ticket_message = await self.modmail_channel.send(embed=ticket_embed.channel_embed(self.guild, ticket['ticket_id']))
-        db.update_ticket_message(ticket['ticket_id'], ticket_message.id)
-        await message.add_reaction('📨')
-        await post_reactions(ticket_message)
 
-        if ticket['message_id'] is not None and ticket['message_id'] != -1:
-            old_ticket_message = await self.modmail_channel.fetch_message(ticket['message_id'])
-            await old_ticket_message.delete()
+        try:
+            if ticket['message_id'] is not None and ticket['message_id'] != -1:
+                old_ticket_message = await self.modmail_channel.fetch_message(ticket['message_id'])
+                await old_ticket_message.delete()
+        except discord.errors.NotFound:
+            await message.channel.send('You are being rate limited. Please wait a few seconds before trying again.')
+            return
+
+        db.add_ticket_response(ticket['ticket_id'], user.id, response, False)
+
+        ticket_message = await self.modmail_channel.send(embed=ticket_embed.channel_embed(self.guild, ticket['ticket_id']))
+        await message.add_reaction('📨')
+
+        db.update_ticket_message(ticket['ticket_id'], ticket_message.id)
+        await post_reactions(ticket_message)
 
 def setup(bot):
     bot.add_cog(Listeners(bot))

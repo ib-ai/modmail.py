@@ -1,4 +1,5 @@
 import asyncio, datetime
+import discord
 import db, utils.uformatter as uformatter, utils.ticket_embed as ticket_embed
 
 class embed_reactions():
@@ -62,14 +63,19 @@ class embed_reactions():
                 if len(response) > 1000:
                     await message.channel.send('Your message is too long. Please shorten your message or send in multiple parts.')
                     return
-                
-                await message.delete()
-                db.add_ticket_response(self.ticket['ticket_id'], self.reaction_user.id, response, True)
+                # Removed - can add as config option later
+                # await message.delete()
                 await ticket_user.send(embed=ticket_embed.user_embed(self.guild, response))
+                db.add_ticket_response(self.ticket['ticket_id'], self.reaction_user.id, response, True)
                 ticket_message = await self.modmail_channel.fetch_message(self.ticket['message_id'])
                 await ticket_message.edit(embed=ticket_embed.channel_embed(self.guild, self.ticket['ticket_id']))
+
         except asyncio.TimeoutError:
             pass
+        except discord.errors.Forbidden:
+            await self.modmail_channel.send("Could not send ModMail message to specified user due to privacy settings.")
+        except Exception as e:
+            raise RuntimeError(e)
 
         await cancel.delete()
 
@@ -117,10 +123,14 @@ class embed_reactions():
                 # Change below value to custom
                 timeout = datetime.datetime.now() + datetime.timedelta(days=1)
                 timestamp = int(timeout.timestamp())
-                db.set_timeout(ticket_user.id, timestamp)
                 await ticket_user.send(embed=ticket_embed.user_timeout(timestamp))
+                db.set_timeout(ticket_user.id, timestamp)
                 await self.modmail_channel.send('{0} has been successfully timed out for 24 hours. They will be able to message ModMail again after <t:{1}>.'.format(ticket_user, timestamp))
         except asyncio.TimeoutError:
             pass
+        except discord.errors.Forbidden:
+            await self.modmail_channel.send("Could not send timeout message to specified user due to privacy settings. Timeout has not been set.")
+        except Exception as e:
+            raise RuntimeError(e)
 
         await confirmation.delete()

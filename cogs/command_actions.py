@@ -1,4 +1,4 @@
-import datetime, asyncio
+import datetime, asyncio, discord
 import utils.umember as umember, db, utils.ticket_embed as ticket_embed
 from utils.embed_reactions import embed_reactions
 from discord.ext import commands
@@ -126,6 +126,8 @@ class CommandActions(commands.Cog):
                 await self.modmail_channel.send('{0} has been successfully untimed out.'.format(member))
         except asyncio.TimeoutError:
             pass
+        except discord.errors.Forbidden:
+            await self.modmail_channel.send("Could not send timeout message to specified user due to privacy settings. Timeout has not been set.")
 
         await confirmation.delete()
     
@@ -136,7 +138,7 @@ class CommandActions(commands.Cog):
         elif type(error) == commands.errors.MissingRequiredArgument:
             await ctx.send("A valid user (and one who is still on the server) was not specified.")
         else:
-            await ctx.send(error + "\nIf you do not understand, contact a bot dev.")
+            await ctx.send(str(error) + "\nIf you do not understand, contact a bot dev.")
 
 
 async def post_reactions(message):
@@ -149,7 +151,10 @@ async def post_reactions(message):
     message_reactions = ['🗣️', '❎', '⏲️']
 
     for reaction in message_reactions:
-        await message.add_reaction(reaction)
+        try:
+            await message.add_reaction(reaction)
+        except discord.errors.NotFound:
+            pass
 
 def setup(bot):
     bot.add_cog(CommandActions(bot))
