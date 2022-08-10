@@ -98,7 +98,7 @@ async def handle_reaction(emoji, message, reaction_user):
     elif str(emoji) == '❎':
         await embed_actions.message_close()    
     elif str(emoji) == '⏲️':
-        ticket_user = guild.get_member(ticket['user'])
+        ticket_user = await bot.fetch_user(ticket['user'])
         await embed_actions.message_timeout(ticket_user)    
         
 @bot.event

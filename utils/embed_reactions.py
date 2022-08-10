@@ -27,6 +27,10 @@ class embed_reactions():
 
         ticket_user = self.guild.get_member(self.ticket['user'])
 
+        if not ticket_user:
+            await self.modmail_channel.send("Cannot reply to ticket as user is not in the server.")
+            return
+
         cancel = await self.modmail_channel.send(embed=ticket_embed.reply_cancel(ticket_user))
         await cancel.add_reaction('❎')
 
@@ -82,7 +86,10 @@ class embed_reactions():
     async def message_close(self):
         """Sends close confirmation embed, and if confirmed, will close the ticket."""
 
-        ticket_user = self.guild.get_member(self.ticket['user'])
+        ticket_user = await self.bot.fetch_user(self.ticket['user'])
+
+        if not ticket_user:
+            ticket_user = "user"
 
         confirmation = await self.modmail_channel.send(embed=ticket_embed.close_confirmation(ticket_user))
         await confirmation.add_reaction('✅')
@@ -123,13 +130,13 @@ class embed_reactions():
                 # Change below value to custom
                 timeout = datetime.datetime.now() + datetime.timedelta(days=1)
                 timestamp = int(timeout.timestamp())
-                await ticket_user.send(embed=ticket_embed.user_timeout(timestamp))
                 db.set_timeout(ticket_user.id, timestamp)
                 await self.modmail_channel.send('{0} has been successfully timed out for 24 hours. They will be able to message ModMail again after <t:{1}>.'.format(ticket_user, timestamp))
+                await ticket_user.send(embed=ticket_embed.user_timeout(timestamp))
         except asyncio.TimeoutError:
             pass
         except discord.errors.Forbidden:
-            await self.modmail_channel.send("Could not send timeout message to specified user due to privacy settings. Timeout has not been set.")
+            pass
         except Exception as e:
             raise RuntimeError(e)
 
