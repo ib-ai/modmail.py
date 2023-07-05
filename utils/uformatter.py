@@ -1,11 +1,15 @@
-def format_message(message):
+import discord
+
+
+def format_message(message: discord.Message) -> str:
     attachments = message.attachments
-    formatted_message = '{0}'.format(message.content)
+    formatted_message = f'{message.content}'
     for attachment in attachments:
-        type = 'Unknown'
+        attachment_type = 'Unknown'
         if attachment.content_type.startswith('image'):
-            type = 'Image'
+            attachment_type = 'Image'
         elif attachment.content_type.startswith('video'):
-            type = 'Video'
-        formatted_message += '\n[{0} Attachment]({1})'.format(type, attachment.url)
+            attachment_type = 'Video'
+        formatted_message += f'\n[{attachment_type} Attachment]({attachment.url})'
+
     return formatted_message
