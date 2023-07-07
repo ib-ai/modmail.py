@@ -2,8 +2,7 @@ from contextlib import asynccontextmanager
 import aiosqlite
 from typing import Optional
 
-# FIX: Change this to `/database/modmail.db` before push
-path = 'modmail.db'
+path = '/database/modmail.db'
 
 
 @asynccontextmanager

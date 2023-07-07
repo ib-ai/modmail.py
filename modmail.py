@@ -9,7 +9,7 @@ import logging
 from utils.ticket_embed import MessageButtonsView
 
 logger = logging.getLogger('bot')
-logger.setLevel(logging.DEBUG)  # TODO: Change back to logging.INFO
+logger.setLevel(logging.INFO)
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -18,6 +18,8 @@ logging.basicConfig(
 intents = discord.Intents.default()
 intents.members = True
 intents.message_content = True
+
+member_cache = discord.MemberCacheFlags()
 
 
 class Modmail(commands.Bot):
@@ -28,6 +30,7 @@ class Modmail(commands.Bot):
             command_prefix=config.prefix,
             description=config.status,
             application_id=config.application_id,
+            member_cache_flags=member_cache,
         )
 
     async def setup_hook(self):
@@ -49,7 +52,7 @@ class Modmail(commands.Bot):
                 logger.error(e)
         logger.info("Loaded all cogs.")
 
-        self.add_view(MessageButtonsView(bot))
+        self.add_view(MessageButtonsView(bot, []))
         logger.info("Added all views.")
 
     async def on_ready(self):
