@@ -3,16 +3,19 @@ import discord
 from discord.ext import commands
 from discord.utils import format_dt
 import db
-from typing import Optional, Union
+from typing import Collection, Optional, Union
 
 from utils import actions, config
 
 import logging
 
+from utils.pagination import paginated_embed_menus
+
 logger = logging.getLogger(__name__)
 
 
 class ConfirmationView(discord.ui.View):
+    """Confirmation view for yes/no operations."""
 
     def __init__(self,
                  message: Optional[discord.Message] = None,
@@ -41,6 +44,7 @@ class ConfirmationView(discord.ui.View):
 
 
 class CancelView(discord.ui.View):
+    """Cancel view for cancelling operations if requested by the user."""
 
     def __init__(self,
                  task: asyncio.Task,
@@ -68,32 +72,104 @@ class CancelView(discord.ui.View):
 
 
 class MessageButtonsView(discord.ui.View):
+    """Message buttons view for ticket messages."""
 
-    def __init__(self, bot: commands.Bot):
+    def __init__(self, bot: commands.Bot, embeds: Collection[discord.Embed]):
         super().__init__(timeout=None)
         self.bot = bot
+        self.embeds = embeds
+        self.current_page = len(self.embeds) - 1
 
     @discord.ui.button(emoji="💬", custom_id=f"{config.id_prefix}:reply")
-    async def mail_reply(self, interaction: discord.Interaction,
-                         button: discord.ui.Button):
+    async def mail_reply(self, interaction: discord.Interaction, _):
+        """
+        Replies to the ticket.
+        """
         ticket = await db.get_ticket_by_message(interaction.message.id)
         await actions.message_reply(self.bot, interaction, ticket)
 
     @discord.ui.button(emoji="❎", custom_id=f"{config.id_prefix}:close")
-    async def mail_close(self, interaction: discord.Interaction,
-                         button: discord.ui.Button):
+    async def mail_close(self, interaction: discord.Interaction, _):
+        """
+        Closes the ticket.
+        """
         ticket = await db.get_ticket_by_message(interaction.message.id)
         member = interaction.guild.get_member(
             ticket.user) or await interaction.guild.fetch_member(ticket.user)
         await actions.message_close(interaction, ticket, member)
 
     @discord.ui.button(emoji="⏲️", custom_id=f"{config.id_prefix}:timeout")
-    async def mail_timeout(self, interaction: discord.Interaction,
-                           button: discord.ui.Button):
+    async def mail_timeout(self, interaction: discord.Interaction, _):
+        """
+        Times out the user of the ticket.
+        """
         ticket = await db.get_ticket_by_message(interaction.message.id)
         member = interaction.guild.get_member(
             ticket.user) or await interaction.guild.fetch_member(ticket.user)
         await actions.message_timeout(interaction, member)
+
+    @discord.ui.button(emoji="⬅️",
+                       style=discord.ButtonStyle.blurple,
+                       custom_id=f"{config.id_prefix}:before_page")
+    async def before_page(self, interaction: discord.Interaction, _):
+        """
+        Goes to the previous page.
+        """
+        if len(self.embeds) == 0:
+            await interaction.response.send_message(
+                "Please refresh this ticket to be able to use pagination.",
+                ephemeral=True)
+            return
+
+        if self.current_page > 0:
+            self.current_page -= 1
+            self.update_pagination_buttons()
+            await self.update_view(interaction)
+
+    @discord.ui.button(emoji="➡️",
+                       style=discord.ButtonStyle.blurple,
+                       custom_id=f"{config.id_prefix}:next_page")
+    async def next_page(self, interaction: discord.Interaction, _):
+        """
+        Goes to the next page.
+        """
+        if len(self.embeds) == 0:
+            await interaction.response.send_message(
+                "Please refresh this ticket to be able to use pagination.",
+                ephemeral=True)
+            return
+
+        if self.current_page < len(self.embeds) - 1:
+            self.current_page += 1
+            self.update_pagination_buttons()
+            await self.update_view(interaction)
+
+    def update_pagination_buttons(self):
+        """
+        Updates the buttons based on the current page.
+        """
+        for i in self.children:
+            i.disabled = False
+        if self.current_page == 0:
+            self.children[3].disabled = True
+        if self.current_page == len(self.embeds) - 1:
+            self.children[4].disabled = True
+
+    async def update_view(self, interaction: discord.Interaction):
+        """
+        Updates the embed and view.
+        """
+        await interaction.response.edit_message(
+            embed=self.embeds[self.current_page], view=self)
+
+    async def return_paginated_embed(
+            self) -> tuple[discord.Embed, discord.ui.View | None]:
+        """
+        Returns the first embed and containing view.
+        """
+        self.update_pagination_buttons()  # Disable buttons only one embed
+
+        return self.embeds[self.current_page], self
 
 
 def user_embed(guild: discord.Guild, message: str) -> discord.Embed:
@@ -113,42 +189,43 @@ def user_embed(guild: discord.Guild, message: str) -> discord.Embed:
     return message_embed
 
 
-async def channel_embed(
-        bot: commands.Bot, guild: discord.Guild,
-        ticket: db.Ticket) -> tuple[discord.Embed, discord.ui.View]:
-    """Returns formatted embed for channel.
+async def channel_embed(guild: discord.Guild,
+                        ticket: db.Ticket) -> Collection[discord.Embed]:
+    """Returns formatted embed for modmail channel.
 
     Args:
         guild (discord.Guild): The guild.
-        ticket (Ticket): The ticket.
+        ticket (db.Ticket): The ticket.
 
     Returns:
-        discord.Embed: Channel embed containing message and user content.
+        Collection[discord.Embed]: Collection of embeds for the ticket.
     """
 
-    # WARNING: Handle when user is not in guild or in DM listener
     ticket_member = guild.get_member(ticket.user) or await guild.fetch_member(
         ticket.user)
 
-    message_embed = discord.Embed(
-        title=f"ModMail Conversation for {ticket_member}",
-        description=
-        f"User {ticket_member.mention} has **{len(ticket_member.roles) - 1}** roles\n Joined Discord: **{format_dt(ticket_member.created_at, 'D')}**\n Joined Server: **{format_dt(ticket_member.joined_at, 'D')}**"
-    )
-
     responses = await db.get_ticket_responses(ticket.ticket_id)
+
+    names = []
+    values = []
 
     for response in responses:
         author = 'user'
         if response.as_server:
             author = f'{guild.get_member(response.user)} as server'
-        message_embed.add_field(
-            name=f"<t:{response.timestamp}:R>, {author} wrote",
-            value=response.response,
-            inline=False)
+        names.append(f"<t:{response.timestamp}:R>, {author} wrote")
+        values.append(response.response)
 
-    message_buttons_view = MessageButtonsView(bot)
-    return message_embed, message_buttons_view
+    embed_dict = {
+        "title":
+        f"ModMail Conversation for {ticket_member.name}",
+        "description":
+        f"User {ticket_member.mention} has **{len(ticket_member.roles) - 1}** roles\n Joined Discord: **{format_dt(ticket_member.created_at, 'D')}**\n Joined Server: **{format_dt(ticket_member.joined_at, 'D')}**"
+    }
+
+    embeds = paginated_embed_menus(names, values, embed_dict=embed_dict)
+
+    return embeds
 
 
 def close_confirmation(
@@ -159,7 +236,7 @@ def close_confirmation(
         member (discord.Member): The ticket user.
 
     Returns:
-        discord.Embed: Channel embed for close confirmation.
+        tuple[discord.Embed, discord.ui.View]: Tuple containing channel embed and view for close confirmation.
     """
 
     confirmation_view = ConfirmationView()
@@ -180,7 +257,7 @@ def timeout_confirmation(
         member (discord.Member): The ticket user.
 
     Returns:
-        discord.Embed: Channel embed for timeout confirmation.
+        tuple[discord.Embed, discord.ui.View]: Tuple containing channel embed and view for timeout confirmation.
     """
 
     confirmation_view = ConfirmationView()
@@ -201,7 +278,7 @@ def untimeout_confirmation(
         timeout (int): The timeout as Epoch milliseconds.
 
     Returns:
-        discord.Embed: Channel embed for untimeout confirmation.
+        tuple[discord.Embed, discord.ui.View]: Tuple containing channel embed and view for untimeout confirmation.
     """
     confirmation_view = ConfirmationView()
 
@@ -219,14 +296,15 @@ def reply_cancel(member: discord.Member,
 
     Args:
         member (discord.Member): The ticket user.
+        task (asyncio.Task): The task for the reply (e.g., waiting for user message).
 
     Returns:
-        discord.Embed: Channel embed for ticket reply.
+        tuple[discord.Embed, discord.ui.View]: Tuple containing channel embed and view for reply cancellation.
     """
 
     cancel_view = CancelView(task)
     message_embed = discord.Embed(
-        description=f"Replying to ModMail conversation for **{member}**")
+        description=f"Replying to ModMail conversation for **{member.name}**")
 
     return message_embed, cancel_view
 
@@ -245,7 +323,8 @@ def closed_ticket(staff: Union[discord.User, discord.Member],
 
     message_embed = discord.Embed(
         description=
-        f"**{staff}** closed the ModMail conversation for **{member}**")
+        f"**{staff.name}** closed the ModMail conversation for **{member.name}**"
+    )
 
     return message_embed
 
