@@ -29,10 +29,29 @@ class Commands(commands.Cog):
 
     async def cog_check(self, ctx: commands.Context):
         if ctx.channel != self.modmail_channel:
+            await ctx.send("Command must be used in the modmail channel.")
             return False
 
         if ctx.author == self.bot:
+            await ctx.send("Bots cannot use commands.")
             return False
+
+        return True
+
+    async def interaction_check(self, interaction: discord.Interaction):
+        if interaction.channel != self.modmail_channel:
+            await interaction.response.send_message(
+                "Command must be used in the modmail channel.")
+            return False
+
+        if "resolved" in interaction.data and "users" in interaction.data[
+                "resolved"] and len(interaction.data["resolved"]["users"]) > 0:
+            user_id = next(iter(interaction.data["resolved"]["users"]))
+            user = interaction.data["resolved"]["users"][user_id]
+            if "bot" in user and user["bot"]:
+                await interaction.response.send_message(
+                    "Invalid user specified.")
+                return False
 
         return True
 
@@ -42,6 +61,13 @@ class Commands(commands.Cog):
     async def sync(self,
                    ctx: commands.Context,
                    spec: Optional[Literal["~"]] = None):
+        """
+        Syncs commands to the current guild or globally.
+
+        Args:
+            ctx (commands.Context): The command context.
+            spec (Optional[Literal["~"]]): If "~", syncs globally. Defaults to None.
+        """
         if spec == "~":
             synced = await ctx.bot.tree.sync()
         else:
@@ -59,11 +85,6 @@ class Commands(commands.Cog):
                           member: discord.Member):
         """Opens ticket for specified user if no tickets are currently open."""
 
-        # TODO: Check if you can share this across commands
-        if member.bot:
-            await interaction.response.send_message(
-                f'Cannot open ticket for {member.name} (bot).')
-            return
         await actions.message_open(self.bot, interaction, member)
 
     @app_commands.command(name="refresh")
@@ -72,10 +93,6 @@ class Commands(commands.Cog):
                              member: discord.Member):
         """Resends embed for specified user if there is a ticket that is already open."""
 
-        if member.bot:
-            await interaction.response.send_message('Invalid member specified.'
-                                                    )
-            return
         await actions.message_refresh(self.bot, interaction, member)
 
     @app_commands.command(name="close")
@@ -84,16 +101,11 @@ class Commands(commands.Cog):
                            member: discord.Member):
         """Closes ticket for specified user given that a ticket is already open."""
 
-        if member.bot:
-            await interaction.response.send_message('Invalid member specified.'
-                                                    )
-            return
-
         ticket = await db.get_ticket_by_user(member.id)
 
         if not ticket:
             await interaction.response.send_message(
-                f'There is no ticket open for {member.name}.')
+                f'There is no ticket open for {member.name}.', ephemeral=True)
             return
 
         await actions.message_close(interaction, ticket, member)
@@ -103,10 +115,6 @@ class Commands(commands.Cog):
     async def timeout_ticket(self, interaction: discord.Interaction,
                              member: discord.Member):
         """Times out specified user."""
-        if member.bot:
-            await interaction.response.send_message('Invalid member specified.'
-                                                    )
-            return
         await actions.message_timeout(interaction, member)
 
     @app_commands.command(name="untimeout")
@@ -115,16 +123,12 @@ class Commands(commands.Cog):
                                member: discord.Member):
         """Removes timeout for specified user given that user is currently timed out."""
 
-        if member.bot:
-            await interaction.response.send_message('Invalid member specified.'
-                                                    )
-            return
         await actions.message_untimeout(interaction, member)
 
-    # FIX: Fix errors
-    async def cog_command_error(self, ctx, error):
+    async def cog_command_error(self, ctx: commands.Context,
+                                error: commands.CommandError):
         if type(error) == commands.errors.CheckFailure:
-            print("Command executed in wrong channel.")
+            logger.error("Checks failed for interaction.")
         elif type(error) == commands.errors.MissingRequiredArgument:
             await ctx.send(
                 "A valid user (and one who is still on the server) was not specified."
@@ -133,10 +137,23 @@ class Commands(commands.Cog):
             await ctx.send(
                 str(error) + "\nIf you do not understand, contact a bot dev.")
 
+    async def cog_app_command_error(self, interaction: discord.Interaction,
+                                    error: app_commands.AppCommandError):
+        if type(error) == app_commands.errors.CheckFailure:
+            logger.error("Checks failed for interaction.")
+        else:
+            await interaction.response.send_message(
+                str(error) + "\nIf you do not understand, contact a bot dev.")
+        logger.error(error)
+
 
 async def setup(bot: commands.Bot):
     try:
         modmail_channel = await bot.fetch_channel(config.channel)
+
+        if type(modmail_channel) != discord.TextChannel:
+            raise TypeError(
+                "The channel specified in config was not a text channel.")
     except Exception as e:
         logger.error(e)
         logger.fatal(
