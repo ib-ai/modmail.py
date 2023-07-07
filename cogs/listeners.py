@@ -35,8 +35,19 @@ class Listeners(commands.Cog):
         """
 
         if message.guild is None and not message.author.bot:
+            # Handle if user is not in guild
+            if not (self.modmail_channel.guild.get_member(message.author.id)
+                    or await self.modmail_channel.guild.fetch_member(
+                        message.author.id)):
+                try:
+                    await message.author.send(
+                        'Unable to send message. Please ensure you have joined the server.'
+                    )
+                except discord.errors.Forbidden:
+                    pass
+                return
+
             await self.handle_dm(message)
-            return
 
     async def handle_dm(self, message: discord.Message):
         """Handle DM messages.
@@ -74,9 +85,7 @@ class Listeners(commands.Cog):
             logger.info(f"Opened new ticket for: {user.id}")
 
         try:
-            if ticket and ticket.message_id is not None and ticket.message_id != -1:
-                # WARNING: Fix handling other channels
-                # FIX: what if someone deletes the embed
+            if ticket and ticket.message_id is not None:
                 old_ticket_message = await self.modmail_channel.fetch_message(
                     ticket.message_id)
                 await old_ticket_message.delete()
@@ -90,8 +99,12 @@ class Listeners(commands.Cog):
         await db.add_ticket_response(ticket.ticket_id, user.id, response,
                                      False)
 
-        message_embed, buttons_view = await ticket_embed.channel_embed(
-            self.bot, self.modmail_channel.guild, ticket)
+        embeds = await ticket_embed.channel_embed(self.modmail_channel.guild,
+                                                  ticket)
+
+        message_embed, buttons_view = await ticket_embed.MessageButtonsView(
+            self.bot, embeds).return_paginated_embed()
+
         ticket_message = await self.modmail_channel.send(embed=message_embed,
                                                          view=buttons_view)
         await message.add_reaction('📨')
@@ -100,8 +113,17 @@ class Listeners(commands.Cog):
 
 
 async def setup(bot: commands.Bot):
+    """Setup function for the listeners cog.
+
+    Args:
+        bot (commands.Bot): The bot.
+    """
     try:
         modmail_channel = await bot.fetch_channel(config.channel)
+
+        if type(modmail_channel) != discord.TextChannel:
+            raise TypeError(
+                "The channel specified in config was not a text channel.")
     except Exception as e:
         logger.error(e)
         logger.fatal(
