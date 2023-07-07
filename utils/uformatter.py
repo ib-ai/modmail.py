@@ -2,6 +2,15 @@ import discord
 
 
 def format_message(message: discord.Message) -> str:
+    """
+    Formats message to include attachments as links.
+
+    Args:
+        message (discord.Message): Message to format.
+
+    Returns:
+        str: Formatted message.
+    """
     attachments = message.attachments
     formatted_message = f'{message.content}'
     for attachment in attachments:
