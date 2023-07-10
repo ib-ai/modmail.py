@@ -6,6 +6,10 @@
       community.docker.docker_compose:
         project_src: /ibobots/modmail
         pull: true
+
+    - name: Stop and Remove Existing Containers
+      community.docker.docker_compose:
+        project_src: /ibobots/modmail
         state: absent
 
     - name: Deploy Docker Image
