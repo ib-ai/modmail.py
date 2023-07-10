@@ -1,0 +1,14 @@
+---
+- hosts: all
+  become: true
+  tasks:
+    - name: Pull Latest Docker Image
+      community.docker.docker_compose:
+        project_src: /ibobots/modmail
+        pull: true
+        state: absent
+
+    - name: Deploy Docker Image
+      community.docker.docker_compose:
+        project_src: /ibobots/modmail
+        build: false

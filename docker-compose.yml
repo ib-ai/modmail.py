@@ -1,0 +1,12 @@
+version: "3.8"
+
+services:
+  modmail:
+    image: ghcr.io/ib-ai/modmail-py:latest
+    env_file: modmail.env
+    restart: on-failure
+    volumes:
+      - mm-data:/database
+
+volumes:
+  mm-data:
