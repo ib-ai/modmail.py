@@ -56,7 +56,7 @@ class Commands(commands.Cog):
         return True
 
     @commands.command(name="sync")
-    @commands.has_permissions(administrator=True)
+    @commands.has_permissions(manage_guild=True)
     @commands.guild_only()
     async def sync(self,
                    ctx: commands.Context,
