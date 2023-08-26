@@ -1,7 +1,7 @@
+import datetime
+
 from discord.ext import commands
 import discord
-import datetime
-import sys
 
 import db
 from utils import config, uformatter, ticket_embed
@@ -14,8 +14,7 @@ logger = logging.getLogger(__name__)
 class Listeners(commands.Cog):
     """Cog to contain all main listener methods."""
 
-    def __init__(self, bot: commands.Bot,
-                 modmail_channel: discord.TextChannel) -> None:
+    def __init__(self, bot: commands.Bot, modmail_channel: discord.TextChannel) -> None:
         """Constructs necessary attributes for all command action methods.
 
         Args:
@@ -36,12 +35,13 @@ class Listeners(commands.Cog):
 
         if message.guild is None and not message.author.bot:
             # Handle if user is not in guild
-            if not (self.modmail_channel.guild.get_member(message.author.id)
-                    or await self.modmail_channel.guild.fetch_member(
-                        message.author.id)):
+            if not (
+                self.modmail_channel.guild.get_member(message.author.id)
+                or await self.modmail_channel.guild.fetch_member(message.author.id)
+            ):
                 try:
                     await message.author.send(
-                        'Unable to send message. Please ensure you have joined the server.'
+                        "Unable to send message. Please ensure you have joined the server."
                     )
                 except discord.errors.Forbidden:
                     pass
@@ -67,13 +67,13 @@ class Listeners(commands.Cog):
 
         response = uformatter.format_message(message)
 
-        if not response.strip():
+        if not response:
             return
 
         # ! Fix for longer messages
         if len(response) > 1000:
             await message.channel.send(
-                'Your message is too long. Please shorten your message or send in multiple parts.'
+                "Your message is too long. Please shorten your message or send in multiple parts."
             )
             return
 
@@ -87,27 +87,28 @@ class Listeners(commands.Cog):
         try:
             if ticket and ticket.message_id is not None:
                 old_ticket_message = await self.modmail_channel.fetch_message(
-                    ticket.message_id)
+                    ticket.message_id
+                )
                 await old_ticket_message.delete()
         except discord.errors.NotFound:
             await message.channel.send(
-                'You are being rate limited. Please wait a few seconds before trying again.'
+                "You are being rate limited. Please wait a few seconds before trying again."
             )
             return
 
         # `ticket` truthiness has been checked prior to the following lines
-        await db.add_ticket_response(ticket.ticket_id, user.id, response,
-                                     False)
+        await db.add_ticket_response(ticket.ticket_id, user.id, response, False)
 
-        embeds = await ticket_embed.channel_embed(self.modmail_channel.guild,
-                                                  ticket)
+        embeds = await ticket_embed.channel_embed(self.modmail_channel.guild, ticket)
 
         message_embed, buttons_view = await ticket_embed.MessageButtonsView(
-            self.bot, embeds).return_paginated_embed()
+            self.bot, embeds
+        ).return_paginated_embed()
 
-        ticket_message = await self.modmail_channel.send(embed=message_embed,
-                                                         view=buttons_view)
-        await message.add_reaction('📨')
+        ticket_message = await self.modmail_channel.send(
+            embed=message_embed, view=buttons_view
+        )
+        await message.add_reaction("📨")
 
         await db.update_ticket_message(ticket.ticket_id, ticket_message.id)
 
@@ -120,15 +121,12 @@ async def setup(bot: commands.Bot):
     """
     try:
         modmail_channel = await bot.fetch_channel(config.channel)
-
-        if type(modmail_channel) != discord.TextChannel:
-            raise TypeError(
-                "The channel specified in config was not a text channel.")
     except Exception as e:
-        logger.error(e)
-        logger.fatal(
+        raise ValueError(
             "The channel specified in config was not found. Please check your config."
-        )
-        sys.exit(-1)
+        ) from e
+
+    if not isinstance(modmail_channel, discord.TextChannel):
+        raise TypeError("The channel specified in config was not a text channel.")
 
     await bot.add_cog(Listeners(bot, modmail_channel))
