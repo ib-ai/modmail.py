@@ -1,15 +1,15 @@
 import asyncio
+from typing import Collection, Optional, Union
+
 import discord
 from discord.ext import commands
 from discord.utils import format_dt
-import db
-from typing import Collection, Optional, Union
 
+import db
 from utils import actions, config
+from utils.pagination import paginated_embed_menus
 
 import logging
-
-from utils.pagination import paginated_embed_menus
 
 logger = logging.getLogger(__name__)
 
@@ -17,9 +17,7 @@ logger = logging.getLogger(__name__)
 class ConfirmationView(discord.ui.View):
     """Confirmation view for yes/no operations."""
 
-    def __init__(self,
-                 message: Optional[discord.Message] = None,
-                 timeout: int = 60):
+    def __init__(self, message: Optional[discord.Message] = None, timeout: int = 60):
         super().__init__(timeout=timeout)
         self.message = message
         self.value = None
@@ -28,16 +26,14 @@ class ConfirmationView(discord.ui.View):
         await self.message.delete()
         await super().on_timeout()
 
-    @discord.ui.button(label='Yes', style=discord.ButtonStyle.green)
-    async def yes(self, interaction: discord.Interaction,
-                  button: discord.ui.Button):
+    @discord.ui.button(label="Yes", style=discord.ButtonStyle.green)
+    async def yes(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.value = True
         await self.message.delete()
         self.stop()
 
-    @discord.ui.button(label='No', style=discord.ButtonStyle.red)
-    async def no(self, interaction: discord.Interaction,
-                 button: discord.ui.Button):
+    @discord.ui.button(label="No", style=discord.ButtonStyle.red)
+    async def no(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.value = False
         await self.message.delete()
         self.stop()
@@ -46,10 +42,12 @@ class ConfirmationView(discord.ui.View):
 class CancelView(discord.ui.View):
     """Cancel view for cancelling operations if requested by the user."""
 
-    def __init__(self,
-                 task: asyncio.Task,
-                 message: Optional[discord.Message] = None,
-                 timeout: int = 60) -> None:
+    def __init__(
+        self,
+        task: asyncio.Task,
+        message: Optional[discord.Message] = None,
+        timeout: int = 60,
+    ) -> None:
         super().__init__(timeout=timeout)
         self.message = message
         self.task = task
@@ -65,9 +63,8 @@ class CancelView(discord.ui.View):
         await self.view_cleanup()
         await super().on_timeout()
 
-    @discord.ui.button(label='Cancel', style=discord.ButtonStyle.red)
-    async def cancel(self, interaction: discord.Interaction,
-                     button: discord.ui.Button):
+    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.red)
+    async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
         await self.view_cleanup()
 
 
@@ -95,7 +92,8 @@ class MessageButtonsView(discord.ui.View):
         """
         ticket = await db.get_ticket_by_message(interaction.message.id)
         member = interaction.guild.get_member(
-            ticket.user) or await interaction.guild.fetch_member(ticket.user)
+            ticket.user
+        ) or await interaction.guild.fetch_member(ticket.user)
         await actions.message_close(interaction, ticket, member)
 
     @discord.ui.button(emoji="⏲️", custom_id=f"{config.id_prefix}:timeout")
@@ -105,20 +103,24 @@ class MessageButtonsView(discord.ui.View):
         """
         ticket = await db.get_ticket_by_message(interaction.message.id)
         member = interaction.guild.get_member(
-            ticket.user) or await interaction.guild.fetch_member(ticket.user)
+            ticket.user
+        ) or await interaction.guild.fetch_member(ticket.user)
         await actions.message_timeout(interaction, member)
 
-    @discord.ui.button(emoji="⬅️",
-                       style=discord.ButtonStyle.blurple,
-                       custom_id=f"{config.id_prefix}:before_page")
-    async def before_page(self, interaction: discord.Interaction, _):
+    @discord.ui.button(
+        emoji="⬅️",
+        style=discord.ButtonStyle.blurple,
+        custom_id=f"{config.id_prefix}:previous_page",
+    )
+    async def previous_page(self, interaction: discord.Interaction, _):
         """
         Goes to the previous page.
         """
         if len(self.embeds) == 0:
             await interaction.response.send_message(
                 "Please refresh this ticket to be able to use pagination.",
-                ephemeral=True)
+                ephemeral=True,
+            )
             return
 
         if self.current_page > 0:
@@ -126,9 +128,11 @@ class MessageButtonsView(discord.ui.View):
             self.update_pagination_buttons()
             await self.update_view(interaction)
 
-    @discord.ui.button(emoji="➡️",
-                       style=discord.ButtonStyle.blurple,
-                       custom_id=f"{config.id_prefix}:next_page")
+    @discord.ui.button(
+        emoji="➡️",
+        style=discord.ButtonStyle.blurple,
+        custom_id=f"{config.id_prefix}:next_page",
+    )
     async def next_page(self, interaction: discord.Interaction, _):
         """
         Goes to the next page.
@@ -136,7 +140,8 @@ class MessageButtonsView(discord.ui.View):
         if len(self.embeds) == 0:
             await interaction.response.send_message(
                 "Please refresh this ticket to be able to use pagination.",
-                ephemeral=True)
+                ephemeral=True,
+            )
             return
 
         if self.current_page < len(self.embeds) - 1:
@@ -160,10 +165,12 @@ class MessageButtonsView(discord.ui.View):
         Updates the embed and view.
         """
         await interaction.response.edit_message(
-            embed=self.embeds[self.current_page], view=self)
+            embed=self.embeds[self.current_page], view=self
+        )
 
     async def return_paginated_embed(
-            self) -> tuple[discord.Embed, discord.ui.View | None]:
+        self,
+    ) -> tuple[discord.Embed, discord.ui.View | None]:
         """
         Returns the first embed and containing view.
         """
@@ -183,14 +190,16 @@ def user_embed(guild: discord.Guild, message: str) -> discord.Embed:
         discord.Embed: User DM embed containing the message content.
     """
 
-    message_embed = discord.Embed(title=f"New Mail from {guild.name}",
-                                  description=message)
+    message_embed = discord.Embed(
+        title=f"New Mail from {guild.name}", description=message
+    )
 
     return message_embed
 
 
-async def channel_embed(guild: discord.Guild,
-                        ticket: db.Ticket) -> Collection[discord.Embed]:
+async def channel_embed(
+    guild: discord.Guild, ticket: db.Ticket
+) -> Collection[discord.Embed]:
     """Returns formatted embed for modmail channel.
 
     Args:
@@ -202,7 +211,8 @@ async def channel_embed(guild: discord.Guild,
     """
 
     ticket_member = guild.get_member(ticket.user) or await guild.fetch_member(
-        ticket.user)
+        ticket.user
+    )
 
     responses = await db.get_ticket_responses(ticket.ticket_id)
 
@@ -210,17 +220,15 @@ async def channel_embed(guild: discord.Guild,
     values = []
 
     for response in responses:
-        author = 'user'
+        author = "user"
         if response.as_server:
-            author = f'{guild.get_member(response.user)} as server'
+            author = f"{guild.get_member(response.user)} as server"
         names.append(f"<t:{response.timestamp}:R>, {author} wrote")
         values.append(response.response)
 
     embed_dict = {
-        "title":
-        f"ModMail Conversation for {ticket_member.name}",
-        "description":
-        f"User {ticket_member.mention} has **{len(ticket_member.roles) - 1}** roles\n Joined Discord: **{format_dt(ticket_member.created_at, 'D')}**\n Joined Server: **{format_dt(ticket_member.joined_at, 'D')}**"
+        "title": f"ModMail Conversation for {ticket_member.name}",
+        "description": f"User {ticket_member.mention} has **{len(ticket_member.roles) - 1}** roles\n Joined Discord: **{format_dt(ticket_member.created_at, 'D')}**\n Joined Server: **{format_dt(ticket_member.joined_at, 'D')}**",
     }
 
     embeds = paginated_embed_menus(names, values, embed_dict=embed_dict)
@@ -228,8 +236,7 @@ async def channel_embed(guild: discord.Guild,
     return embeds
 
 
-def close_confirmation(
-        member: discord.Member) -> tuple[discord.Embed, discord.ui.View]:
+def close_confirmation(member: discord.Member) -> tuple[discord.Embed, discord.ui.View]:
     """Returns embed for ticket close confirmation.
 
     Args:
@@ -242,15 +249,15 @@ def close_confirmation(
     confirmation_view = ConfirmationView()
 
     message_embed = discord.Embed(
-        description=
-        f"Do you want to close the ModMail conversation for **{member.name}**?"
+        description=f"Do you want to close the ModMail conversation for **{member.name}**?"
     )
 
     return message_embed, confirmation_view
 
 
 def timeout_confirmation(
-        member: discord.Member) -> tuple[discord.Embed, discord.ui.View]:
+    member: discord.Member,
+) -> tuple[discord.Embed, discord.ui.View]:
     """Returns embed for ticket timeout confirmation.
 
     Args:
@@ -263,14 +270,15 @@ def timeout_confirmation(
     confirmation_view = ConfirmationView()
 
     message_embed = discord.Embed(
-        description=f"Do you want to timeout **{member.name}** for 24 hours?")
+        description=f"Do you want to timeout **{member.name}** for 24 hours?"
+    )
 
     return message_embed, confirmation_view
 
 
 def untimeout_confirmation(
-        member: discord.Member,
-        timeout: int) -> tuple[discord.Embed, discord.ui.View]:
+    member: discord.Member, timeout: int
+) -> tuple[discord.Embed, discord.ui.View]:
     """Returns embed for ticket untimeout confirmation.
 
     Args:
@@ -283,15 +291,15 @@ def untimeout_confirmation(
     confirmation_view = ConfirmationView()
 
     message_embed = discord.Embed(
-        description=
-        f"Do you want to untimeout **{member.name}** (they are currently timed out until <t:{timeout}>)?"
+        description=f"Do you want to untimeout **{member.name}** (they are currently timed out until <t:{timeout}>)?"
     )
 
     return message_embed, confirmation_view
 
 
-def reply_cancel(member: discord.Member,
-                 task: asyncio.Task) -> tuple[discord.Embed, discord.ui.View]:
+def reply_cancel(
+    member: discord.Member, task: asyncio.Task
+) -> tuple[discord.Embed, discord.ui.View]:
     """Returns embed for replying to ticket with cancel reaction.
 
     Args:
@@ -304,13 +312,15 @@ def reply_cancel(member: discord.Member,
 
     cancel_view = CancelView(task)
     message_embed = discord.Embed(
-        description=f"Replying to ModMail conversation for **{member.name}**")
+        description=f"Replying to ModMail conversation for **{member.name}**"
+    )
 
     return message_embed, cancel_view
 
 
-def closed_ticket(staff: Union[discord.User, discord.Member],
-                  member: discord.Member) -> discord.Embed:
+def closed_ticket(
+    staff: Union[discord.User, discord.Member], member: discord.Member
+) -> discord.Embed:
     """Returns embed for closed ticket.
 
     Args:
@@ -322,8 +332,7 @@ def closed_ticket(staff: Union[discord.User, discord.Member],
     """
 
     message_embed = discord.Embed(
-        description=
-        f"**{staff.name}** closed the ModMail conversation for **{member.name}**"
+        description=f"**{staff.name}** closed the ModMail conversation for **{member.name}**"
     )
 
     return message_embed
@@ -340,8 +349,7 @@ def user_timeout(timeout: int) -> discord.Embed:
     """
 
     message_embed = discord.Embed(
-        description=
-        f"You have been timed out. You will be able to message ModMail again after <t:{timeout}>."
+        description=f"You have been timed out. You will be able to message ModMail again after <t:{timeout}> (<t:{timeout}:R>)."
     )
 
     return message_embed
@@ -355,7 +363,7 @@ def user_untimeout() -> discord.Embed:
     """
 
     message_embed = discord.Embed(
-        description=
-        "Your timeout has been removed. You can message ModMail again.")
+        description="Your timeout has been removed. You can message ModMail again."
+    )
 
     return message_embed

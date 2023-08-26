@@ -31,29 +31,26 @@ def paginated_embed_menus(
     N = len(names)
     if N != len(values):
         raise ValueError(
-            'names and values for paginated embed menus must be of equal length.'
+            "names and values for paginated embed menus must be of equal length."
         )
     if isinstance(inline, bool):
         inline = [inline] * N
     elif N != len(inline):
         raise ValueError(
-            '"inline" must be boolean or a collection of booleans of equal length to names/values for paginated embed menus.'
+            "'inline' must be boolean or a collection of booleans of equal length to names/values for paginated embed menus."
         )
 
     if embed_dict:
-        if 'title' in embed_dict and len(embed_dict['title']) > 256:
-            raise ValueError('title cannot be over 256 characters')
-        if 'description' in embed_dict and len(
-                embed_dict['description']) > 4096:
-            raise ValueError('desription cannot be over 4096 characters')
-        if 'footer' in embed_dict:
-            raise ValueError('embed_dict "footer" key must not be set.')
-        if 'fields' in embed_dict:
-            raise ValueError('embed_dict "fields" key must not be set.')
+        if "title" in embed_dict and len(embed_dict["title"]) > 256:
+            raise ValueError("title cannot be over 256 characters")
+        if "description" in embed_dict and len(embed_dict["description"]) > 4096:
+            raise ValueError("desription cannot be over 4096 characters")
+        if "footer" in embed_dict:
+            raise ValueError("embed_dict 'footer' key must not be set.")
+        if "fields" in embed_dict:
+            raise ValueError("embed_dict 'fields' key must not be set.")
     else:
-        embed_dict = {  # default
-            'description': 'Here is a list of entries.'
-        }
+        embed_dict = {"description": "Here is a list of entries."}  # default
 
     if N == 0:
         return [discord.Embed.from_dict(embed_dict)]
@@ -63,8 +60,9 @@ def paginated_embed_menus(
     pages = 1
     items = 0
     for name, value, inline_field in zip(names, values, inline):
-        if items == pagesize or len(current) + len(name) + len(
-                value) > 5090:  # leave 10 chars for footers
+        if (
+            items == pagesize or len(current) + len(name) + len(value) > 5090
+        ):  # leave 10 chars for footers
             embeds.append(current)
             current = discord.Embed.from_dict(embed_dict)
             pages += 1
