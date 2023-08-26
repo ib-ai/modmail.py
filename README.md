@@ -12,6 +12,20 @@ ModMail, but in Python
 - `status`: The bot status.
 - `id_prefix`: The bot prefix for persistent views (e.g., `mm`)
 
+## Sample `config.json`
+
+```json
+{
+  "token": "abc123",
+  "application_id": 1234567890,
+  "guild": 1234567890,
+  "channel": 1234567890,
+  "prefix": "]",
+  "status": "DM to contact",
+  "id_prefix": "mm"
+}
+```
+
 # Running the bot
 
 1. Navigate to the root directory.
@@ -48,3 +62,7 @@ docker container run --name modmail \
     -e MODMAIL_PREFIX=! \
     modmail-py
 ```
+
+# Contributions
+
+For information regarding contributing to this project, please read [CONTRIBUTING.md](CONTRIBUTING.md).
