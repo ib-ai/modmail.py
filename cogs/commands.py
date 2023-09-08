@@ -5,11 +5,14 @@ from discord import app_commands
 import discord
 
 import db
-from utils import config, actions
+from utils import actions
+from utils.config import Config
 
 import logging
 
 logger = logging.getLogger(__name__)
+
+modmail_config = Config()
 
 
 class Commands(commands.Cog):
@@ -165,7 +168,7 @@ async def setup(bot: commands.Bot):
         bot (commands.Bot): The bot.
     """
     try:
-        modmail_channel = await bot.fetch_channel(config.channel)
+        modmail_channel = await bot.fetch_channel(modmail_config.channel)
     except Exception as e:
         raise ValueError(
             "The channel specified in config was not found. Please check your config."

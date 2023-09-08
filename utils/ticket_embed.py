@@ -6,12 +6,15 @@ from discord.ext import commands
 from discord.utils import format_dt
 
 import db
-from utils import actions, config
+from utils import actions
+from utils.config import Config
 from utils.pagination import paginated_embed_menus
 
 import logging
 
 logger = logging.getLogger(__name__)
+
+modmail_config = Config()
 
 
 class ConfirmationView(discord.ui.View):
@@ -77,7 +80,7 @@ class MessageButtonsView(discord.ui.View):
         self.embeds = embeds
         self.current_page = len(self.embeds) - 1
 
-    @discord.ui.button(emoji="💬", custom_id=f"{config.id_prefix}:reply")
+    @discord.ui.button(emoji="💬", custom_id=f"{modmail_config.id_prefix}:reply")
     async def mail_reply(self, interaction: discord.Interaction, _):
         """
         Replies to the ticket.
@@ -85,7 +88,7 @@ class MessageButtonsView(discord.ui.View):
         ticket = await db.get_ticket_by_message(interaction.message.id)
         await actions.message_reply(self.bot, interaction, ticket)
 
-    @discord.ui.button(emoji="❎", custom_id=f"{config.id_prefix}:close")
+    @discord.ui.button(emoji="❎", custom_id=f"{modmail_config.id_prefix}:close")
     async def mail_close(self, interaction: discord.Interaction, _):
         """
         Closes the ticket.
@@ -96,7 +99,7 @@ class MessageButtonsView(discord.ui.View):
         ) or await interaction.guild.fetch_member(ticket.user)
         await actions.message_close(interaction, ticket, member)
 
-    @discord.ui.button(emoji="⏲️", custom_id=f"{config.id_prefix}:timeout")
+    @discord.ui.button(emoji="⏲️", custom_id=f"{modmail_config.id_prefix}:timeout")
     async def mail_timeout(self, interaction: discord.Interaction, _):
         """
         Times out the user of the ticket.
@@ -110,7 +113,7 @@ class MessageButtonsView(discord.ui.View):
     @discord.ui.button(
         emoji="⬅️",
         style=discord.ButtonStyle.blurple,
-        custom_id=f"{config.id_prefix}:previous_page",
+        custom_id=f"{modmail_config.id_prefix}:previous_page",
     )
     async def previous_page(self, interaction: discord.Interaction, _):
         """
@@ -131,7 +134,7 @@ class MessageButtonsView(discord.ui.View):
     @discord.ui.button(
         emoji="➡️",
         style=discord.ButtonStyle.blurple,
-        custom_id=f"{config.id_prefix}:next_page",
+        custom_id=f"{modmail_config.id_prefix}:next_page",
     )
     async def next_page(self, interaction: discord.Interaction, _):
         """

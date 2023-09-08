@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 
 import db
-from utils import config
+from utils.config import Config
 from utils.ticket_embed import MessageButtonsView
 
 import logging
@@ -21,6 +21,8 @@ intents.message_content = True
 
 member_cache = discord.MemberCacheFlags()
 
+modmail_config = Config()
+
 INITIAL_COGS = ["commands", "listeners"]
 
 
@@ -28,9 +30,9 @@ class Modmail(commands.Bot):
     def __init__(self):
         super().__init__(
             intents=intents,
-            command_prefix=config.prefix,
-            description=config.status,
-            application_id=config.application_id,
+            command_prefix=modmail_config.prefix,
+            description=modmail_config.status,
+            application_id=modmail_config.application_id,
             member_cache_flags=member_cache,
         )
 
@@ -57,7 +59,8 @@ class Modmail(commands.Bot):
 
     async def on_ready(self):
         await bot.change_presence(
-            activity=discord.Game(name=config.status), status=discord.Status.online
+            activity=discord.Game(name=modmail_config.status),
+            status=discord.Status.online,
         )
 
         logger.info(f"Bot '{bot.user.name}' is now connected.")
@@ -68,4 +71,4 @@ class Modmail(commands.Bot):
 
 
 bot = Modmail()
-bot.run(config.token)
+bot.run(modmail_config.token.get_secret_value())
