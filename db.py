@@ -5,6 +5,8 @@ from typing import Awaitable, Callable, Concatenate, Optional, ParamSpec, TypeVa
 from aiosqlite import connect, Row, Cursor
 
 
+# For development/local testing, use "modmail.db"
+# For production and working with Docker, use "/database/modmail.db"
 PATH = "/database/modmail.db"
 
 P = ParamSpec("P")
