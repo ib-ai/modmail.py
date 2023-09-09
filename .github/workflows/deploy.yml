@@ -15,7 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Run ansible-lint
-        uses: ansible-community/ansible-lint-action@main
+        uses: ansible/ansible-lint@main
   run-ansible-playbook:
     runs-on: ubuntu-latest
     needs: [lint-playbook]
@@ -39,4 +39,5 @@ jobs:
           known_hosts: ${{ secrets.KNOWN_HOSTS }}
       - name: Run Ansible Playbook
         run: |
-          ansible-playbook -i inventory playbook.yml
+          ansible-galaxy install -r requirements.yml &&
+          ansible-playbook -v -i inventory playbook.yml
