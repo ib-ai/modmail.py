@@ -1,4 +1,11 @@
 ---
+- name: Install Docker Python
+  hosts: all
+  become: true
+  tasks:
+    - name: Install Docker Module with Pip
+      ansible.builtin.pip:
+        name: docker
 - name: Pull and Deploy Docker Images
   hosts: all
   become: true
