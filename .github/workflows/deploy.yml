@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/SchemaStore/schemastore/master/src/schemas/json/github-workflow.json
+
+name: ModMail CD
+
+on:
+  workflow_run:
+    workflows: ["ModMail CI"]
+    types:
+      - completed
+  workflow_dispatch:
+
+jobs:
+  lint-playbook:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Run ansible-lint
+        uses: ansible-community/ansible-lint-action@main
+  run-ansible-playbook:
+    runs-on: ubuntu-latest
+    needs: [lint-playbook]
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install Ansible via Apt
+        run: >
+          sudo apt update &&
+          sudo apt install software-properties-common &&
+          sudo apt-add-repository --yes --update ppa:ansible/ansible &&
+          sudo apt install ansible
+      - name: Write Inventory to File
+        env:
+          INVENTORY: ${{ secrets.INVENTORY }}
+        run: 'echo "$INVENTORY" > inventory'
+      - name: Install SSH Key
+        uses: shimataro/ssh-key-action@v2
+        with:
+          key: ${{ secrets.ANSIBLE_KEY }}
+          name: ansible
+          known_hosts: ${{ secrets.KNOWN_HOSTS }}
+      - name: Run Ansible Playbook
+        run: |
+          ansible-playbook -i inventory playbook.yml

@@ -1,7 +1,9 @@
 {
-  "token": "",
-  "guild": 0,
-  "channel": 0,
-  "prefix": "",
-  "status": ""
+    "token": "",
+    "application_id": 0,
+    "guild": 0,
+    "channel": 0,
+    "prefix": "",
+    "status": "",
+    "id_prefix": ""
 }
