@@ -1,5 +1,6 @@
 ---
-- hosts: all
+- name: Pull and Deploy Docker Images
+  hosts: all
   become: true
   tasks:
     - name: Stop and Remove Existing Containers
