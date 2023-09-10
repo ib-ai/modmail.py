@@ -19,7 +19,7 @@ intents = discord.Intents.default()
 intents.members = True
 intents.message_content = True
 
-member_cache = discord.MemberCacheFlags()
+member_cache = discord.MemberCacheFlags.all()
 
 modmail_config = Config()
 
