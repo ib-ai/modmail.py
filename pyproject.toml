@@ -1,5 +1,5 @@
 [project]
 name = "modmail.py"
-version = "2.0.0"
+version = "2.0.1"
 readme = "README.md"
 description = "A Discord bot for managing modmail written in Python."
