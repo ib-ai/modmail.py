@@ -66,8 +66,11 @@ class Modmail(commands.Bot):
         logger.info(f"Bot '{bot.user.name}' is now connected.")
 
     async def on_command_error(self, ctx: commands.Context, exception) -> None:
+        if not isinstance(
+            exception, commands.CommandNotFound
+        ):  # Prevent sending CommandNotFound errors to the user
+            await ctx.send(exception)
         await super().on_command_error(ctx, exception)
-        await ctx.send(exception)
 
 
 bot = Modmail()
