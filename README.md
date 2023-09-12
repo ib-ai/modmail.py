@@ -6,8 +6,7 @@ ModMail, but in Python
 
 - `token`: The bot's user token retrieved from Discord Developer Portal.
 - `application_id`: The bot's application ID retrieved from Discord Developer Portal.
-- `guild`: The guild ID.
-- `channel`: Modmail channel ID in specified guild (must be `TextChannel`).
+- `channel`: Modmail channel ID in guild (must be `TextChannel`).
 - `prefix`: The bot prefix (needed for slash command sync command).
 - `status`: The bot status.
 - `id_prefix`: The bot prefix for persistent views (e.g., `mm`)
@@ -18,7 +17,6 @@ ModMail, but in Python
 {
   "token": "abc123",
   "application_id": 1234567890,
-  "guild": 1234567890,
   "channel": 1234567890,
   "prefix": "]",
   "status": "DM to contact",
@@ -57,7 +55,6 @@ As aforementioned, you can also inject environment variables.
 docker container run --name modmail \
     -v database:/database \
     -e MODMAIL_TOKEN=foo \
-    -e MODMAIL_GUILD=123 \
     -e MODMAIL_CHANNEL=321 \
     -e MODMAIL_PREFIX=! \
     modmail-py

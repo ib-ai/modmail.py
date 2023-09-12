@@ -8,7 +8,6 @@ _path = Path(__file__).parent / "../config.json"
 class Config(BaseConfig):
     token: SecretStr
     application_id: int
-    guild: int
     channel: int
     prefix: str
     status: str

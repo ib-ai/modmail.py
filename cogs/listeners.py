@@ -35,7 +35,6 @@ class Listeners(commands.Cog):
         Args:
             message (discord.Message): The current message.
         """
-
         if message.guild is None and not message.author.bot:
             # Handle if user is not in guild
             if not (
@@ -60,6 +59,7 @@ class Listeners(commands.Cog):
         """
 
         user = message.author
+        guild = self.bot.get_guild(self.modmail_channel.guild.id)
 
         timeout = await db.get_timeout(user.id)
         current_time = int(datetime.datetime.now().timestamp())
@@ -102,7 +102,7 @@ class Listeners(commands.Cog):
         # `ticket` truthiness has been checked prior to the following lines
         await db.add_ticket_response(ticket.ticket_id, user.id, response, False)
 
-        embeds = await ticket_embed.channel_embed(self.modmail_channel.guild, ticket)
+        embeds = await ticket_embed.channel_embed(guild, ticket)
 
         message_embed, buttons_view = await ticket_embed.MessageButtonsView(
             self.bot, embeds
