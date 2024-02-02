@@ -3,16 +3,16 @@
   hosts: all
   tasks:
     - name: Stop and Remove Existing Containers
-      community.docker.docker_compose:
+      community.docker.docker_compose_v2:
         project_src: ~/ibobots/modmail
         state: absent
 
     - name: Pull Latest Docker Image
-      community.docker.docker_compose:
+      community.docker.docker_compose_v2:
         project_src: ~/ibobots/modmail
         pull: true
 
     - name: Deploy Docker Image
-      community.docker.docker_compose:
+      community.docker.docker_compose_v2:
         project_src: ~/ibobots/modmail
         build: false
