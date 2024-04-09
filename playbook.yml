@@ -10,7 +10,7 @@
     - name: Pull Latest Docker Image
       community.docker.docker_compose_v2:
         project_src: ~/ibobots/modmail
-        pull: true
+        pull: always
 
     - name: Deploy Docker Image
       community.docker.docker_compose_v2:
