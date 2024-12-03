@@ -1,13 +1,13 @@
 import datetime
+import logging
+from typing import Optional
 
-from discord.ext import commands
 import discord
+from discord.ext import commands
 
 import db
-from utils import uformatter, ticket_embed
+from utils import ticket_embed, uformatter
 from utils.config import Config
-
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -17,16 +17,23 @@ modmail_config = Config()
 class Listeners(commands.Cog):
     """Cog to contain all main listener methods."""
 
-    def __init__(self, bot: commands.Bot, modmail_channel: discord.TextChannel) -> None:
+    def __init__(
+        self,
+        bot: commands.Bot,
+        modmail_channel: discord.TextChannel,
+        allowed_guild: Optional[discord.Guild] = None,
+    ) -> None:
         """Constructs necessary attributes for all command action methods.
 
         Args:
             bot (commands.Bot): The bot object.
             modmail_channel (discord.TextChannel): The specified channel in config.
+            allowed_guild (discord.Guild, optional): The allowed guild specified in config. Defaults to None.
         """
 
         self.bot = bot
         self.modmail_channel = modmail_channel
+        self.allowed_guild = allowed_guild
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
@@ -35,27 +42,46 @@ class Listeners(commands.Cog):
         Args:
             message (discord.Message): The current message.
         """
+        # Accepts messages from DMs only and ignore bots
         if message.guild is None and not message.author.bot:
-            # Handle if user is not in guild
-            if not (
-                self.modmail_channel.guild.get_member(message.author.id)
-                or await self.modmail_channel.guild.fetch_member(message.author.id)
-            ):
-                try:
-                    await message.author.send(
-                        "Unable to send message. Please ensure you have joined the server."
-                    )
-                except discord.errors.Forbidden:
-                    pass
-                return
+            # Scenario 1: Main Guild
+            try:
+                if self.modmail_channel.guild.get_member(
+                    message.author.id
+                ) or await self.modmail_channel.guild.fetch_member(message.author.id):
+                    await self.handle_dm(message, self.modmail_channel.guild)
+                    return
+            except discord.errors.NotFound:
+                pass
 
-            await self.handle_dm(message)
+            # Scenario 2: Allowed Guild
+            try:
+                if self.allowed_guild and (
+                    self.allowed_guild.get_member(message.author.id)
+                    or await self.allowed_guild.fetch_member(message.author.id)
+                ):
+                    await self.handle_dm(message, self.allowed_guild)
+                    return
+            except discord.errors.NotFound:
+                pass
 
-    async def handle_dm(self, message: discord.Message):
+            # Scenario 3: Neither Guild
+            try:
+                join_message = "Unable to send message. Please ensure you are in the IB Discord Server (https://discord.com/invite/ibo)."
+
+                if modmail_config.allowed_guild:
+                    join_message += f"\n\nIf you are submitting a ban appeal, please join the IB Discord Ban Appeals server ({modmail_config.allowed_guild.invite})."
+
+                await message.author.send(join_message)
+            except discord.errors.Forbidden:
+                pass
+
+    async def handle_dm(self, message: discord.Message, source_guild: discord.Guild):
         """Handle DM messages.
 
         Args:
             message (discord.Message): The current message.
+            source_guild (discord.Guild): The guild where the message originated.
         """
 
         user = message.author
@@ -102,7 +128,7 @@ class Listeners(commands.Cog):
         # `ticket` truthiness has been checked prior to the following lines
         await db.add_ticket_response(ticket.ticket_id, user.id, response, False)
 
-        embeds = await ticket_embed.channel_embed(guild, ticket)
+        embeds = await ticket_embed.channel_embed(guild, source_guild, ticket)
 
         message_embed, buttons_view = await ticket_embed.MessageButtonsView(
             self.bot, embeds
@@ -132,4 +158,13 @@ async def setup(bot: commands.Bot):
     if not isinstance(modmail_channel, discord.TextChannel):
         raise TypeError("The channel specified in config was not a text channel.")
 
-    await bot.add_cog(Listeners(bot, modmail_channel))
+    allowed_guild = None
+    if modmail_config.allowed_guild:
+        try:
+            allowed_guild = await bot.fetch_guild(modmail_config.allowed_guild.guild_id)
+        except Exception as e:
+            raise ValueError(
+                "The guild specified in config was not found. Please check your config."
+            ) from e
+
+    await bot.add_cog(Listeners(bot, modmail_channel, allowed_guild))

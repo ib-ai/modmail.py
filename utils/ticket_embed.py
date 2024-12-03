@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from typing import Collection, Optional, Union
 
 import discord
@@ -9,8 +10,6 @@ import db
 from utils import actions
 from utils.config import Config
 from utils.pagination import paginated_embed_menus
-
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -86,6 +85,13 @@ class MessageButtonsView(discord.ui.View):
         Replies to the ticket.
         """
         ticket = await db.get_ticket_by_message(interaction.message.id)
+
+        if not ticket:
+            await interaction.response.send_message(
+                f"Something went wrong. No ticket was found.", ephemeral=True
+            )
+            return
+
         await actions.message_reply(self.bot, interaction, ticket)
 
     @discord.ui.button(emoji="❎", custom_id=f"{modmail_config.id_prefix}:close")
@@ -94,9 +100,21 @@ class MessageButtonsView(discord.ui.View):
         Closes the ticket.
         """
         ticket = await db.get_ticket_by_message(interaction.message.id)
-        member = interaction.guild.get_member(
-            ticket.user
-        ) or await interaction.guild.fetch_member(ticket.user)
+
+        if not ticket:
+            await interaction.response.send_message(
+                f"Something went wrong. No ticket was found.", ephemeral=True
+            )
+            return
+
+        member, _ = await actions.get_guild_member(self.bot, interaction, ticket.user)
+
+        if not member:
+            await interaction.response.send_message(
+                "Unable to find member in allowed servers.", ephemeral=True
+            )
+            return
+
         await actions.message_close(interaction, ticket, member)
 
     @discord.ui.button(emoji="⏲️", custom_id=f"{modmail_config.id_prefix}:timeout")
@@ -105,9 +123,20 @@ class MessageButtonsView(discord.ui.View):
         Times out the user of the ticket.
         """
         ticket = await db.get_ticket_by_message(interaction.message.id)
-        member = interaction.guild.get_member(
-            ticket.user
-        ) or await interaction.guild.fetch_member(ticket.user)
+        if not ticket:
+            await interaction.response.send_message(
+                f"Something went wrong. No ticket was found.", ephemeral=True
+            )
+            return
+
+        member, _ = await actions.get_guild_member(self.bot, interaction, ticket.user)
+
+        if not member:
+            await interaction.response.send_message(
+                "Unable to find member in allowed servers.", ephemeral=True
+            )
+            return
+
         await actions.message_timeout(interaction, member)
 
     @discord.ui.button(
@@ -193,27 +222,26 @@ def user_embed(guild: discord.Guild, message: str) -> discord.Embed:
         discord.Embed: User DM embed containing the message content.
     """
 
-    message_embed = discord.Embed(
-        title=f"New Mail from {guild.name}", description=message
-    )
+    message_embed = discord.Embed(title=f"New Mail from {guild.name}", description=message)
 
     return message_embed
 
 
 async def channel_embed(
-    guild: discord.Guild, ticket: db.Ticket
+    guild: discord.Guild, source_guild: discord.Guild, ticket: db.Ticket
 ) -> Collection[discord.Embed]:
     """Returns formatted embed for modmail channel.
 
     Args:
         guild (discord.Guild): The guild.
+        source_guild (discord.Guild): The source guild name.
         ticket (db.Ticket): The ticket.
 
     Returns:
         Collection[discord.Embed]: Collection of embeds for the ticket.
     """
 
-    ticket_member = guild.get_member(ticket.user) or await guild.fetch_member(
+    ticket_member = source_guild.get_member(ticket.user) or await source_guild.fetch_member(
         ticket.user
     )
 
@@ -230,8 +258,11 @@ async def channel_embed(
         values.append(response.response)
 
     embed_dict = {
-        "title": f"ModMail Conversation for {ticket_member.name}",
-        "description": f"User {ticket_member.mention} has **{len(ticket_member.roles) - 1}** roles\n Joined Discord: **{format_dt(ticket_member.created_at, 'D')}**\n Joined Server: **{format_dt(ticket_member.joined_at, 'D')}**",
+        "title": f"{modmail_config.name} Conversation for {ticket_member.name}",
+        "description": f"User {ticket_member.mention} has **{len(ticket_member.roles) - 1}** roles"
+        f"{f"\n Source Guild: **{source_guild.name}**" if source_guild.id != guild.id else ''}"  # Conditionally show source guild
+        f"\n Joined Discord: **{format_dt(ticket_member.created_at, 'D')}**"
+        f"\n Joined Server: **{format_dt(ticket_member.joined_at, 'D')}**",
     }
 
     embeds = paginated_embed_menus(names, values, embed_dict=embed_dict)
@@ -248,11 +279,10 @@ def close_confirmation(member: discord.Member) -> tuple[discord.Embed, discord.u
     Returns:
         tuple[discord.Embed, discord.ui.View]: Tuple containing channel embed and view for close confirmation.
     """
-
     confirmation_view = ConfirmationView()
 
     message_embed = discord.Embed(
-        description=f"Do you want to close the ModMail conversation for **{member.name}**?"
+        description=f"Do you want to close the {modmail_config.name} conversation for **{member.name}**?"
     )
 
     return message_embed, confirmation_view
@@ -269,7 +299,6 @@ def timeout_confirmation(
     Returns:
         tuple[discord.Embed, discord.ui.View]: Tuple containing channel embed and view for timeout confirmation.
     """
-
     confirmation_view = ConfirmationView()
 
     message_embed = discord.Embed(
@@ -312,10 +341,9 @@ def reply_cancel(
     Returns:
         tuple[discord.Embed, discord.ui.View]: Tuple containing channel embed and view for reply cancellation.
     """
-
     cancel_view = CancelView(task)
     message_embed = discord.Embed(
-        description=f"Replying to ModMail conversation for **{member.name}**"
+        description=f"Replying to {modmail_config.name} conversation for **{member.name}**"
     )
 
     return message_embed, cancel_view
@@ -335,7 +363,7 @@ def closed_ticket(
     """
 
     message_embed = discord.Embed(
-        description=f"**{staff.name}** closed the ModMail conversation for **{member.name}**"
+        description=f"**{staff.name}** closed the {modmail_config.name} conversation for **{member.name}**"
     )
 
     return message_embed
@@ -352,7 +380,7 @@ def user_timeout(timeout: int) -> discord.Embed:
     """
 
     message_embed = discord.Embed(
-        description=f"You have been timed out. You will be able to message ModMail again after <t:{timeout}> (<t:{timeout}:R>)."
+        description=f"You have been timed out. You will be able to message {modmail_config.name} again after <t:{timeout}> (<t:{timeout}:R>)."
     )
 
     return message_embed
@@ -366,7 +394,7 @@ def user_untimeout() -> discord.Embed:
     """
 
     message_embed = discord.Embed(
-        description="Your timeout has been removed. You can message ModMail again."
+        description=f"Your timeout has been removed. You can message {modmail_config.name} again."
     )
 
     return message_embed

@@ -86,33 +86,56 @@ class Commands(commands.Cog):
     @app_commands.command(name="open")
     @commands.guild_only()
     async def open_ticket(
-        self, interaction: discord.Interaction, member: discord.Member
+        self, interaction: discord.Interaction, user: discord.User
     ):
         """Opens ticket for specified user if no tickets are currently open."""
+        member, source_guild = await actions.get_guild_member(self.bot, interaction, user.id)
 
-        await actions.message_open(self.bot, interaction, member)
+        if not member or not source_guild:
+            await interaction.response.send_message(
+                "The specified user could not be found in any of the allowed servers.", ephemeral=True
+            )
+            return
+
+        await actions.message_open(self.bot, interaction, member, source_guild)
 
     @app_commands.command(name="refresh")
     @commands.guild_only()
     async def refresh_ticket(
-        self, interaction: discord.Interaction, member: discord.Member
+        self, interaction: discord.Interaction, user: discord.User
     ):
         """Resends embed for specified user if there is a ticket that is already open."""
 
-        await actions.message_refresh(self.bot, interaction, member)
+        member, source_guild = await actions.get_guild_member(self.bot, interaction, user.id)
+
+        if not member or not source_guild:
+            await interaction.response.send_message(
+                "The specified user could not be found in any of the allowed servers.", ephemeral=True
+            )
+            return
+
+        await actions.message_refresh(self.bot, interaction, member, source_guild)
 
     @app_commands.command(name="close")
     @commands.guild_only()
     async def close_ticket(
-        self, interaction: discord.Interaction, member: discord.Member
+        self, interaction: discord.Interaction, user: discord.User
     ):
         """Closes ticket for specified user given that a ticket is already open."""
 
-        ticket = await db.get_ticket_by_user(member.id)
+        ticket = await db.get_ticket_by_user(user.id)
 
         if not ticket:
             await interaction.response.send_message(
-                f"There is no ticket open for {member.name}.", ephemeral=True
+                f"There is no ticket open for {user.name}.", ephemeral=True
+            )
+            return
+
+        member, _ = await actions.get_guild_member(self.bot, interaction, user.id)
+
+        if not member:
+            await interaction.response.send_message(
+                "The specified user could not be found in any of the allowed servers.", ephemeral=True
             )
             return
 
@@ -121,17 +144,33 @@ class Commands(commands.Cog):
     @app_commands.command(name="timeout")
     @commands.guild_only()
     async def timeout_ticket(
-        self, interaction: discord.Interaction, member: discord.Member
+        self, interaction: discord.Interaction, user: discord.User
     ):
         """Times out specified user."""
+        member, _ = await actions.get_guild_member(self.bot, interaction, user.id)
+
+        if not member:
+            await interaction.response.send_message(
+                "The specified user could not be found in any of the allowed servers.", ephemeral=True
+            )
+            return
+
         await actions.message_timeout(interaction, member)
 
     @app_commands.command(name="untimeout")
     @commands.guild_only()
     async def untimeout_ticket(
-        self, interaction: discord.Interaction, member: discord.Member
+        self, interaction: discord.Interaction, user: discord.User
     ):
         """Removes timeout for specified user given that user is currently timed out."""
+
+        member, _ = await actions.get_guild_member(self.bot, interaction, user.id)
+
+        if not member:
+            await interaction.response.send_message(
+                "The specified user could not be found in any of the allowed servers.", ephemeral=True
+            )
+            return
 
         await actions.message_untimeout(interaction, member)
 

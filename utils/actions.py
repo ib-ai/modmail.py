@@ -1,17 +1,46 @@
 import asyncio
 import datetime
-from typing import Optional
+import logging
+from typing import Optional, Union
 
 import discord
 from discord.ext import commands
 
 import db
 from utils import ticket_embed, uformatter
-
-import logging
+from utils.config import Config
 
 logger = logging.getLogger(__name__)
 
+modmail_config = Config()
+
+
+async def get_guild_member(
+    bot: commands.Bot, interaction: discord.Interaction, user_id: int
+) -> tuple[discord.Member, discord.Guild] | tuple[None, None]:
+    """
+    Gets member and guild from specified user_id.
+
+    Args:
+        interaction (discord.Interaction): The interaction object.
+        user_id (int): The user ID.
+    """
+    try:
+        if interaction.guild:
+            member = interaction.guild.get_member(user_id) or await interaction.guild.fetch_member(user_id)
+            return member, interaction.guild
+    except discord.errors.NotFound:
+        if modmail_config.allowed_guild:
+            try:
+                allowed_guild = bot.get_guild(
+                    modmail_config.allowed_guild.guild_id
+                ) or await bot.fetch_guild(modmail_config.allowed_guild.guild_id)
+                member = allowed_guild.get_member(user_id) or await allowed_guild.fetch_member(user_id)
+                return member, allowed_guild
+            except discord.errors.NotFound:
+                pass
+
+    return None, None
 
 async def waiter(
     bot: commands.Bot, interaction: discord.Interaction
@@ -28,10 +57,7 @@ async def waiter(
     """
 
     def check(message: discord.Message) -> bool:
-        return (
-            message.author == interaction.user
-            and message.channel == interaction.channel
-        )
+        return message.author == interaction.user and message.channel == interaction.channel
 
     try:
         message = await bot.wait_for("message", check=check)
@@ -42,7 +68,10 @@ async def waiter(
 
 
 async def message_open(
-    bot: commands.Bot, interaction: discord.Interaction, member: discord.Member
+    bot: commands.Bot,
+    interaction: discord.Interaction,
+    user: discord.Member,
+    source_guild: discord.Guild,
 ):
     """
     Sends message embed and opens a ticket for the specified user, if not open already.
@@ -50,20 +79,22 @@ async def message_open(
     Args:
         bot (commands.Bot): The bot object.
         interaction (discord.Interaction): The interaction object.
-        member (discord.Member): The member to open a ticket for.
+        user (discord.Member): The user to open the ticket for.
+        source_guild (discord.Guild): The guild where the user is from.
     """
-    ticket = await db.get_ticket_by_user(member.id)
+    # Check if user in main guild or allowed guild
+    ticket = await db.get_ticket_by_user(user.id)
 
     if ticket:
         await interaction.response.send_message(
-            f"There is already a ticket open for {member.name}.", ephemeral=True
+            f"There is already a ticket open for {user.name}.", ephemeral=True
         )
         return
 
-    ticket_id = await db.open_ticket(member.id)
+    ticket_id = await db.open_ticket(user.id)
     ticket = await db.get_ticket(ticket_id)
 
-    embeds = await ticket_embed.channel_embed(interaction.guild, ticket)
+    embeds = await ticket_embed.channel_embed(interaction.guild, source_guild, ticket)
 
     message_embed, buttons_view = await ticket_embed.MessageButtonsView(
         bot, embeds
@@ -76,7 +107,10 @@ async def message_open(
 
 
 async def message_refresh(
-    bot: commands.Bot, interaction: discord.Interaction, member: discord.Member
+    bot: commands.Bot,
+    interaction: discord.Interaction,
+    member: discord.Member,
+    source_guild: discord.Guild,
 ):
     """
     Resends message embed for the specified user if open.
@@ -85,6 +119,7 @@ async def message_refresh(
         bot (commands.Bot): The bot object.
         interaction (discord.Interaction): The interaction object.
         member (discord.Member): The member to refresh the ticket for.
+        source_guild (discord.Guild): The guild where the user is from.
     """
     ticket = await db.get_ticket_by_user(member.id)
 
@@ -94,7 +129,7 @@ async def message_refresh(
         )
         return
 
-    embeds = await ticket_embed.channel_embed(interaction.guild, ticket)
+    embeds = await ticket_embed.channel_embed(interaction.guild, source_guild, ticket)
 
     message_embed, buttons_view = await ticket_embed.MessageButtonsView(
         bot, embeds
@@ -106,9 +141,7 @@ async def message_refresh(
 
     if ticket.message_id is not None:
         try:
-            old_ticket_message = await interaction.channel.fetch_message(
-                ticket.message_id
-            )
+            old_ticket_message = await interaction.channel.fetch_message(ticket.message_id)
             await old_ticket_message.delete()
         except discord.errors.NotFound:
             # Pass if original ticket message has been deleted already
@@ -126,7 +159,6 @@ async def message_close(
         ticket (db.Ticket): The ticket object.
         user (discord.Member): The member to close the ticket for.
     """
-
     close_embed, confirmation_view = ticket_embed.close_confirmation(user)
 
     await interaction.response.send_message(embed=close_embed, view=confirmation_view)
@@ -159,9 +191,9 @@ async def message_reply(
         ticket (db.Ticket): The ticket object.
     """
 
-    ticket_user = interaction.guild.get_member(ticket.user)
+    ticket_user, source_guild = await get_guild_member(bot, interaction, ticket.user)
 
-    if not ticket_user:
+    if not ticket_user or not source_guild:
         await interaction.response.send_message(
             "Cannot reply to ticket as user is not in the server."
         )
@@ -195,15 +227,11 @@ async def message_reply(
             return
 
         try:
-            await ticket_user.send(
-                embed=ticket_embed.user_embed(interaction.guild, response)
-            )
-            await db.add_ticket_response(
-                ticket.ticket_id, interaction.user.id, response, True
-            )
+            await ticket_user.send(embed=ticket_embed.user_embed(source_guild, response))
+            await db.add_ticket_response(ticket.ticket_id, interaction.user.id, response, True)
             ticket_message = await interaction.channel.fetch_message(ticket.message_id)
 
-            embeds = await ticket_embed.channel_embed(interaction.guild, ticket)
+            embeds = await ticket_embed.channel_embed(interaction.guild, source_guild, ticket)
 
             channel_embed, buttons_view = await ticket_embed.MessageButtonsView(
                 bot, embeds
@@ -212,7 +240,7 @@ async def message_reply(
             await ticket_message.edit(embed=channel_embed, view=buttons_view)
         except discord.errors.Forbidden:
             await interaction.channel.send(
-                "Could not send ModMail message to specified user due to privacy settings."
+                f"Could not send {modmail_config.name} message to specified user due to privacy settings."
             )
 
     except Exception as e:
@@ -245,7 +273,7 @@ async def message_timeout(interaction: discord.Interaction, member: discord.Memb
         logger.info(f"User {member.id} timed out by {interaction.user.id}")
 
         await interaction.channel.send(
-            f"{member.name} has been successfully timed out for 24 hours. They will be able to message ModMail again after <t:{timestamp}>."
+            f"{member.name} has been successfully timed out for 24 hours. They will be able to message {modmail_config.name} again after <t:{timestamp}>."
         )
 
         try:
@@ -277,9 +305,7 @@ async def message_untimeout(interaction: discord.Interaction, member: discord.Me
         member, timeout.timestamp
     )
 
-    await interaction.response.send_message(
-        embed=untimeout_embed, view=confirmation_view
-    )
+    await interaction.response.send_message(embed=untimeout_embed, view=confirmation_view)
     confirmation_view.message = await interaction.original_response()
 
     await confirmation_view.wait()
