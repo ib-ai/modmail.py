@@ -1,8 +1,13 @@
 {
-    "token": "",
-    "application_id": 0,
-    "channel": 0,
-    "prefix": "",
-    "status": "",
-    "id_prefix": ""
+  "name": "ModMail",
+  "token": "",
+  "application_id": 0,
+  "channel": 0,
+  "prefix": "",
+  "status": "",
+  "id_prefix": "",
+  "allowed_guild": {
+    "id": 0,
+    "invite": ""
+  }
 }

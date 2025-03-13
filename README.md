@@ -4,23 +4,30 @@ ModMail, but in Python
 
 # Configuration
 
+- `name`: The bot's name.
 - `token`: The bot's user token retrieved from Discord Developer Portal.
 - `application_id`: The bot's application ID retrieved from Discord Developer Portal.
 - `channel`: Modmail channel ID in guild (must be `TextChannel`).
 - `prefix`: The bot prefix (needed for slash command sync command).
 - `status`: The bot status.
 - `id_prefix`: The bot prefix for persistent views (e.g., `mm`)
+- `allowed_guild`: The alternate guild to accept modmails from. This is optional.
 
 ## Sample `config.json`
 
 ```json
 {
+  "name": "ModMail",
   "token": "abc123",
   "application_id": 1234567890,
   "channel": 1234567890,
   "prefix": "]",
   "status": "DM to contact",
-  "id_prefix": "mm"
+  "id_prefix": "mm",
+  "allowed_guild": {
+    "guild_id": 1234567890,
+    "invite": "https://discord.gg/invite"
+  }
 }
 ```
 
