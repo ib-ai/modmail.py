@@ -24,5 +24,5 @@ class Config(BaseConfig):
 
     CONFIG_SOURCES = [
         FileSource(_path, format=FileFormat.JSON, optional=True),
-        EnvSource(file=".env", nested_separator="__", prefix="MODMAIL_", allow_all=True),
+        EnvSource(nested_separator="__", prefix="MODMAIL_", allow_all=True),
     ]
